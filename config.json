@@ -1,0 +1,30 @@
+{
+    "broker_address": "ts-laptop",
+    "topics":{
+        "main_topic": "mqtt_qos/main_topic",
+        "tx_done": "mqtt_qos/tx_done",
+        "begin_client": "mqtt_qos/begin_client",
+        "finish_client": "mqtt_qos/finish_client"
+    },
+    "msg_details":{
+        "amount": 10,
+        "size": 500,
+        "freq": 20
+    },
+    "client_details":{
+        "amount": 10,
+        "ids":{
+            "client-0": "client-0",
+            "client-1": "client-1",
+            "client-2": "client-2",
+            "client-3": "client-3",
+            "client-4": "client-4",
+            "client-5": "client-5",
+            "client-6": "client-6",
+            "client-7": "client-7",
+            "client-8": "client-8",
+            "client-9": "client-9",
+            "server": "server"
+        }        
+    }
+}
