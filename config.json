@@ -1,5 +1,5 @@
 {
-    "broker_address": "ts-laptop",
+    "broker_address": "laptop-broker",
     "topics":{
         "main_topic": "mqtt_qos/main_topic",
         "tx_done": "mqtt_qos/tx_done",
@@ -7,12 +7,12 @@
         "finish_client": "mqtt_qos/finish_client"
     },
     "msg_details":{
-        "amount": 10,
-        "size": 500,
+        "amount": 1000,
+        "size": 12500,
         "freq": 20
     },
     "client_details":{
-        "amount": 10,
+        "amount": 2,
         "ids":{
             "client-0": "client-0",
             "client-1": "client-1",
