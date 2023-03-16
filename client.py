@@ -21,50 +21,54 @@ print(f"\tAmount: {msg_amount} messages")
 print(f"\tSize: {msg_size} bytes")
 print(f"\tFrequency: {msg_freq}Hz")
 
-def on_connect(client, userdata, flags, rc):
-    if rc==0:
-        print(f"Connected: {broker_address}")
-    else:
-        print(f"Error: RC = {rc}")
+class MQTT_Client:
+    def on_connect(self, client, userdata, flags, rc):
+        if rc==0:
+            print(f"Connected: {broker_address}")
+        else:
+            print(f"Error: RC = {rc}")
 
-    client.subscribe(begin_client, 0)
-    client.subscribe(finish_client, 0)
-    print(f"Subscribed: {begin_client}, {finish_client}")
-    print("Waiting: begin client")
+        self.client.subscribe(begin_client, 0)
+        self.client.subscribe(finish_client, 0)
+        print(f"Subscribed: {begin_client}, {finish_client}")
+        print("Waiting: begin client")
 
-def on_message(client, userdata, msg):
-    if str(msg.topic) == begin_client:
-        msg_handler(client)
-    elif str(msg.topic) == finish_client:
-        finish_handler(client)
+    def on_message(self, client, userdata, msg):
+        if str(msg.topic) == begin_client:
+            self.msg_handler()
+        elif str(msg.topic) == finish_client:
+            self.finish_handler()
 
-def on_publish(client, userdata, mid):
-    print(f"Handshake: M{mid-2}", end="\r")
+    def on_publish(self, client, userdata, mid):
+        print(f"Handshake: M{mid-2}", end="\r")
 
-def on_disconnect(client, userdata, rc):
-    print("Disconnect: broker")
+    def on_disconnect(self, client, userdata, rc):
+        print("Disconnect: broker")
 
-def msg_handler(client):
-    print("Sleep: 2 seconds")
-    time.sleep(2)
-    payload = bytearray(msg_size)
-    for msg in range(msg_amount):
-        print(f"Pub: M{msg+1}", end="\r")
-        client.publish(main_topic, payload, qos=2)
-        time.sleep(1/msg_freq)
-    
-    # print("Sending: tx done")
-    # client.publish(tx_done, None, 0)
+    def msg_handler(self):
+        print("Sleep: 2 seconds")
+        time.sleep(2)
+        payload = bytearray(msg_size)
+        for msg in range(msg_amount):
+            print(f"Pub: M{msg+1}", end="\r")
+            self.client.publish(main_topic, payload, qos=2)
+            time.sleep(1/msg_freq)
+        
+        # print("Sending: tx done")
+        # self.client.publish(tx_done, None, 0)
 
-# def finish_handler(client):
-#     print("Received: finish client")
-#     client.disconnect()
+    # def finish_handler(self):
+    #     print("Received: finish client")
+    #     self.client.disconnect()
 
-print(f"Setup: MQTT id {client_id}")
-client = mqtt.Client(client_id=client_id)
-client.on_connect = on_connect
-client.on_message = on_message
-client.on_publish = on_publish
-client.on_disconnect = on_disconnect
-client.connect(broker_address, 1883, 60)
-client.loop_forever()
+    def __init__(self):
+        print(f"Setup: MQTT id {client_id}")
+        self.client = mqtt.Client(client_id=client_id)
+        self.client.on_connect = self.on_connect
+        self.client.on_message = self.on_message
+        self.client.on_publish = self.on_publish
+        self.client.on_disconnect = self.on_disconnect
+        self.client.connect(broker_address, 1883, 60)
+        self.client.loop_forever()
+
+mqtt_client = MQTT_Client()
