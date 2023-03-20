@@ -1,73 +1,64 @@
 import paho.mqtt.client as mqtt
 import time
 import json
+import logging
+import sys
 
 with open("config.json", "r") as config_file:
     config = json.load(config_file)
-    print("Config: read")
 
 broker_address = config['broker_address']
 main_topic = config['topics']['main_topic']
-tx_done = config['topics']['tx_done']
 begin_client = config['topics']['begin_client']
-finish_client = config['topics']['finish_client']
 msg_amount = config['msg_details']['amount']
 msg_size = config['msg_details']['size']
 msg_freq = config['msg_details']['freq']
 client_id = config['client_details']['ids']['client-0']
+log = config['client_details']['logs']['client']
 
-print("Client message configuration:")
-print(f"\tAmount: {msg_amount} messages")
-print(f"\tSize: {msg_size} bytes")
-print(f"\tFrequency: {msg_freq}Hz")
+logging.basicConfig(filename = log, filemode = 'a', format = '%(asctime)s %(levelname)s: %(message)s', level = logging.INFO)
+
+logging.info(f"Message details: {msg_amount} messages of {msg_size} bytes with {msg_freq} Hz frequency")
 
 class MQTT_Client:
     def on_connect(self, client, userdata, flags, rc):
         if rc==0:
-            print(f"Connected: {broker_address}")
+            logging.info(f"Connected to the broker at {broker_address}")
         else:
-            print(f"Error: RC = {rc}")
+            logging.info(f"Error connecting to broker, with code {rc}")
 
         self.client.subscribe(begin_client, 0)
-        self.client.subscribe(finish_client, 0)
-        print(f"Subscribed: {begin_client}, {finish_client}")
-        print("Waiting: begin client")
+        logging.info(f"Subscribed to {begin_client} topic with QoS 0")
 
     def on_message(self, client, userdata, msg):
-        if str(msg.topic) == begin_client:
-            self.msg_handler()
-        elif str(msg.topic) == finish_client:
-            self.finish_handler()
+        logging.info(f"Start order received from the server using topic {str(msg.topic)}")
+        self.msg_handler()
 
     def on_publish(self, client, userdata, mid):
-        print(f"Handshake: M{mid-2}", end="\r")
+        self.counter += 1
+        logging.info(f"Published message #{self.counter} to the {main_topic} topic")
+        if self.counter == msg_amount:
+            logging.info(f"Publish of all {msg_amount} messages complete")
 
     def on_disconnect(self, client, userdata, rc):
-        print("Disconnect: broker")
+        logging.info(f"Disconnected from broker at {broker_address}")
 
     def msg_handler(self):
-        print("Sleep: 2 seconds")
         time.sleep(2)
         payload = bytearray(msg_size)
+        logging.info(f"Starting publish of {msg_amount} messages with QoS 2")
         for msg in range(msg_amount):
-            print(f"Pub: M{msg+1}", end="\r")
             self.client.publish(main_topic, payload, qos=2)
-            time.sleep(1/msg_freq)
-        
-        # print("Sending: tx done")
-        # self.client.publish(tx_done, None, 0)
-
-    # def finish_handler(self):
-    #     print("Received: finish client")
-    #     self.client.disconnect()
+            # time.sleep(1/msg_freq)
 
     def __init__(self):
-        print(f"Setup: MQTT id {client_id}")
+        self.counter = 0
+        logging.info(f"Creating MQTT Client with ID {client_id}")
         self.client = mqtt.Client(client_id=client_id)
         self.client.on_connect = self.on_connect
-        self.client.on_message = self.on_message
-        self.client.on_publish = self.on_publish
         self.client.on_disconnect = self.on_disconnect
+        self.client.on_publish = self.on_publish
+        self.client.on_message = self.on_message
         self.client.connect(broker_address, 1883, 60)
         self.client.loop_forever()
 
