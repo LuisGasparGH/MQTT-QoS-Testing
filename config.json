@@ -10,7 +10,7 @@
         "freq": 20
     },
     "client_details":{
-        "amount": 1,
+        "amount": 2,
         "ids":{
             "client-0": "client-0",
             "client-1": "client-1",

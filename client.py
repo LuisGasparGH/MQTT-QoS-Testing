@@ -3,6 +3,7 @@ import time
 import json
 import logging
 import sys
+import threading
 
 with open("config.json", "r") as config_file:
     config = json.load(config_file)
@@ -32,7 +33,7 @@ class MQTT_Client:
 
     def on_message(self, client, userdata, msg):
         logging.info(f"Start order received from the server using topic {str(msg.topic)}")
-        self.msg_handler()
+        self.handler_thread.start()
 
     def on_publish(self, client, userdata, mid):
         self.counter += 1
@@ -49,10 +50,11 @@ class MQTT_Client:
         logging.info(f"Starting publish of {msg_amount} messages with QoS 2")
         for msg in range(msg_amount):
             self.client.publish(main_topic, payload, qos=2)
-            # time.sleep(1/msg_freq)
+            time.sleep(1/msg_freq)
 
     def __init__(self):
         self.counter = 0
+        self.handler_thread = threading.Thread(target = self.msg_handler, args = ())
         logging.info(f"Creating MQTT Client with ID {client_id}")
         self.client = mqtt.Client(client_id=client_id)
         self.client.on_connect = self.on_connect
