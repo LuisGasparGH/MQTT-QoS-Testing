@@ -4,7 +4,7 @@ import json
 import logging
 import sys
 
-with open("config.json", "r") as config_file:
+with open("conf/config.json", "r") as config_file:
     config = json.load(config_file)
 
 broker_address = config['broker_address']
