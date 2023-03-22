@@ -1,32 +1,15 @@
 {
+    "log_folder": "logs/",
     "broker_address": "laptop-broker",
     "topics":{
         "main_topic": "mqtt_qos/main_topic",
         "begin_client": "mqtt_qos/begin_client"
     },
-    "msg_details":{
-        "amount": 1000,
-        "size": 125000,
-        "freq": 20
-    },
-    "client_details":{
-        "amount": 2,
-        "ids":{
-            "client-0": "client-0",
-            "client-1": "client-1",
-            "client-2": "client-2",
-            "client-3": "client-3",
-            "client-4": "client-4",
-            "client-5": "client-5",
-            "client-6": "client-6",
-            "client-7": "client-7",
-            "client-8": "client-8",
-            "client-9": "client-9",
-            "server": "server"
-        },
-        "logs":{
-            "client": "logs/client.log",
-            "server": "logs/server.log"
-        }   
+    "system_details":{
+        "client_amount": 1,
+        "msg_qos": 2,
+        "msg_amount": 1000,
+        "msg_size": 12500,
+        "msg_freq": 100
     }
 }

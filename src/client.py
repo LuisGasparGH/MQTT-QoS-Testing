@@ -8,18 +8,16 @@ import threading
 with open("conf/config.json", "r") as config_file:
     config = json.load(config_file)
 
+client_id = str(sys.argv[1])
+log_folder = config['log_folder']
+log_name = log_folder + client_id + ".log"
 broker_address = config['broker_address']
 main_topic = config['topics']['main_topic']
 begin_client = config['topics']['begin_client']
-msg_amount = config['msg_details']['amount']
-msg_size = config['msg_details']['size']
-msg_freq = config['msg_details']['freq']
-client_id = config['client_details']['ids']['client-0']
-log = config['client_details']['logs']['client']
 
-logging.basicConfig(filename = log, filemode = 'a', format = '%(asctime)s %(levelname)s: %(message)s', level = logging.INFO)
 
-logging.info(f"Message details: {msg_amount} messages of {msg_size} bytes with {msg_freq} Hz frequency")
+logging.basicConfig(filename = log_name, filemode = 'a', format = '%(asctime)s %(levelname)s: %(message)s', level = logging.INFO)
+logging.warning(f"NEW EXECUTION")
 
 class MQTT_Client:
     def on_connect(self, client, userdata, flags, rc):
@@ -28,31 +26,42 @@ class MQTT_Client:
         else:
             logging.info(f"Error connecting to broker, with code {rc}")
 
-        self.client.subscribe(begin_client, 0)
+        self.client.subscribe(begin_client, qos=0)
         logging.info(f"Subscribed to {begin_client} topic with QoS 0")
 
     def on_message(self, client, userdata, msg):
         logging.info(f"Start order received from the server using topic {str(msg.topic)}")
+        client_config = json.loads(msg.payload)
+        self.msg_qos = client_config['msg_qos']
+        self.msg_amount = client_config['msg_amount']
+        self.msg_size = client_config['msg_size']
+        self.msg_freq = client_config['msg_freq']
+        
+        logging.info(f"Message details: {self.msg_amount} messages of {self.msg_size} bytes using QoS level {self.msg_qos} with {self.msg_freq} Hz frequency")
         self.handler_thread.start()
 
     def on_publish(self, client, userdata, mid):
         self.counter += 1
         logging.info(f"Published message #{self.counter} to the {main_topic} topic")
-        if self.counter == msg_amount:
-            logging.info(f"Publish of all {msg_amount} messages complete")
+        if self.counter == self.msg_amount:
+            logging.info(f"Publish of all {self.msg_amount} messages complete")
 
     def on_disconnect(self, client, userdata, rc):
         logging.info(f"Disconnected from broker at {broker_address}")
 
     def msg_handler(self):
         time.sleep(2)
-        payload = bytearray(msg_size)
-        logging.info(f"Starting publish of {msg_amount} messages with QoS 2")
-        for msg in range(msg_amount):
-            self.client.publish(main_topic, payload, qos=2)
-            time.sleep(1/msg_freq)
+        payload = bytearray(self.msg_size)
+        logging.info(f"Starting publish of {self.msg_amount} messages with QoS level {self.msg_qos}")
+        for msg in range(self.msg_amount):
+            self.client.publish(main_topic, payload, qos=self.msg_qos)
+            time.sleep(1/self.msg_freq)
 
     def __init__(self):
+        self.msg_qos = 0
+        self.msg_amount = 0
+        self.msg_size = 0
+        self.msg_freq = 0
         self.counter = 0
         self.handler_thread = threading.Thread(target = self.msg_handler, args = ())
         logging.info(f"Creating MQTT Client with ID {client_id}")
