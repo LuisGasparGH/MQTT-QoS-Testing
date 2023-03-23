@@ -14,10 +14,9 @@ log_name = log_folder + client_id + ".log"
 broker_address = config['broker_address']
 main_topic = config['topics']['main_topic']
 begin_client = config['topics']['begin_client']
-
+client_done = config['topics']['client_done']
 
 logging.basicConfig(filename = log_name, filemode = 'a', format = '%(asctime)s %(levelname)s: %(message)s', level = logging.INFO)
-logging.warning(f"NEW EXECUTION")
 
 class MQTT_Client:
     def on_connect(self, client, userdata, flags, rc):
@@ -30,6 +29,7 @@ class MQTT_Client:
         logging.info(f"Subscribed to {begin_client} topic with QoS 0")
 
     def on_message(self, client, userdata, msg):
+        logging.warning(f"NEW EXECUTION")
         logging.info(f"Start order received from the server using topic {str(msg.topic)}")
         client_config = json.loads(msg.payload)
         self.msg_qos = client_config['msg_qos']
@@ -56,6 +56,9 @@ class MQTT_Client:
         for msg in range(self.msg_amount):
             self.client.publish(main_topic, payload, qos=self.msg_qos)
             time.sleep(1/self.msg_freq)
+        time.sleep(45)
+        self.client.publish(client_done, None, qos=0)
+        return
 
     def __init__(self):
         self.msg_qos = 0

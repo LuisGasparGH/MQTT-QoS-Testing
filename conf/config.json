@@ -3,13 +3,15 @@
     "broker_address": "laptop-broker",
     "topics":{
         "main_topic": "mqtt_qos/main_topic",
-        "begin_client": "mqtt_qos/begin_client"
+        "begin_client": "mqtt_qos/begin_client",
+        "client_done": "mqtt_qos/client_done"
     },
     "system_details":{
-        "client_amount": 1,
-        "msg_qos": 2,
-        "msg_amount": 1000,
-        "msg_size": 12500,
-        "msg_freq": 100
+        "different_runs": 4,
+        "client_amount": [1,2,4,8],
+        "msg_qos": [0,1,1,2],
+        "msg_amount": [1000,1000,1000,1000],
+        "msg_size": [1250,12500,125000,1250],
+        "msg_freq": [20,50,100,150]
     }
 }
