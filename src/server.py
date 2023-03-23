@@ -20,7 +20,7 @@ begin_client = config['topics']['begin_client']
 client_done = config['topics']['client_done']
 system_runs = config['system_details']['different_runs']
 
-# Configures the logger, which will contain all details for further analysis
+# Configures the logger, which will contain all execution details for further analysis
 logging.basicConfig(filename = log_name, filemode = 'a', format = '%(asctime)s %(levelname)s: %(message)s', level = logging.INFO)
 
 # Class of the server code
@@ -39,15 +39,23 @@ class MQTT_Server:
     def on_message(self, client, userdata, msg):
         # If the topic is the main one, it is just a normal message during that run, and the run counter will increase
         if str(msg.topic) == main_topic:
+            # In order to measure actual publishing frequency, as perceived from the server side, a total runtime of an execution is measured
+            if self.run_counter == 0:
+                self.run_start_time = time.time()
+            self.run_finish_time = time.time()
             self.run_counter += 1
         # If the topic is the client done topic, it means that one of the clients has finished publishing of his messages
         elif str(msg.topic) == client_done:
-            self.clients_done += 1
+            self.run_clients_done += 1
             # If the total of clients done equals the amount of clients of the run, run is considered finished and packet loss is calculated the logged
-            if self.clients_done == self.run_client_amount:
+            if self.run_clients_done == self.run_client_amount:
+                # Once a run is done, packet loss and actual frequency are calculated and logged
                 self.run_loss = 100-((self.run_counter/self.run_msg_amount)*100)
+                self.run_exec_time = self.run_finish_time-self.run_start_time
+                self.run_actual_freq = 1/(self.run_exec_time/{self.run_msg_amount-1})
                 logging.info(f"All {self.run_client_amount} clients finished publishing for this execution")
                 logging.info(f"Received {self.run_counter} out of {self.run_msg_amount} messages, totalling packet loss at {round(self.run_loss,3)}%")
+                logging.info(f"Total execution time was {self.run_exec_time}, totalling actual frequency at {round(self.run_actual_freq,2)}Hz")
                 self.client.unsubscribe(main_topic)
                 self.run_finished = True
 
@@ -62,23 +70,28 @@ class MQTT_Server:
             # This is used to wait for the previous run to finish and clean things up before starting a new one
             while self.run_finished == False:
                 time.sleep(1)
-
+            # Resets all needed variables
+            self.run_counter = 0
+            self.run_loss = 0
+            self.run_start_time = 0
+            self.run_finish_time = 0
+            self.run_exec_time = 0
+            self.run_actual_freq = 0
+            self.run_clients_done = 0
             # Gathers all the information for the next run to be performed, such as client amount, QoS to be used, message amount, size and publishing frequency
             self.run_client_amount = config['system_details']['client_amount'][run]
             self.run_msg_qos = config['system_details']['msg_qos'][run]
             self.run_msg_amount = config['system_details']['msg_amount'][run]
             self.run_msg_size = config['system_details']['msg_size'][run]
             self.run_msg_freq = config['system_details']['msg_freq'][run]
-            self.run_total_msg_amount = msg_amount * client_amount
-            
+            self.run_total_msg_amount = self.run_msg_amount * self.run_client_amount
             # Subscribes to the message topic with the correct QoS to be used in the run, and logs all the information of the run
-            self.client.subscribe(main_topic, qos=msg_qos)
+            self.client.subscribe(main_topic, qos=self.run_msg_qos)
             logging.warning(f"NEW EXECUTION")
-            logging.info(f"Subscribed to {main_topic} topic with QoS level {msg_qos}")
-            logging.info(f"System details: {client_amount} clients with {msg_amount} messages each using QoS level {msg_qos}, for a total of {total_msg_amount} messages")
-            
+            logging.info(f"Subscribed to {main_topic} topic with QoS level {self.run_msg_qos}")
+            logging.info(f"System details: {self.run_client_amount} clients with {self.run_msg_amount} messages each using QoS level {self.run_msg_qos}, for a total of {self.run_total_msg_amount} messages")
             # Dumps the information to a JSON payload to send to all the clients, and publishes it to the client topic
-            client_config = json.dumps({"msg_qos": msg_qos, "msg_amount": msg_amount, "msg_size": msg_size, "msg_freq": msg_freq})
+            client_config = json.dumps({"msg_qos": self.run_msg_qos, "msg_amount": self.run_msg_amount, "msg_size": self.run_msg_size, "msg_freq": self.run_msg_freq})
             self.client.publish(begin_client, client_config, qos=0)
             logging.info(f"Sent configuration and start order to all the clients for run #{run+1}")
             self.run_finished = False
@@ -86,22 +99,32 @@ class MQTT_Server:
         self.cleanup()
         return
     
-    # Cleanup function, to inform all clients all runs are finished and disconnects from the broker
+    # Cleanup function, to inform all clients all runs are finished and gracefully closes the connection with the broker
     def cleanup(self):
         self.client.publish(begin_client, None, qos=0)
         time.sleep(2)
         self.client.disconnect()
 
-    # Starts the class with all the variables
+    # Starts the class with all the variables necessary
     def __init__(self):
         self.run_finished = True
+        self.run_client_amount = 0
+        self.run_msg_qos = 0
+        self.run_msg_amount = 0
+        self.run_msg_freq = 0
+        self.run_total_msg_amount = 0
         self.clients_done = 0
         self.run_counter = 0
         self.run_loss = 0
+        self.run_start_time = 0
+        self.run_finish_time = 0
+        self.run_exec_time = 0
+        self.run_actual_freq = 0
+        self.run_clients_done = 0
         # Declares the thread where the system handler will run
         self.handler_thread = threading.Thread(target = self.sys_handler, args=())
         logging.info(f"Creating MQTT Client with ID {client_id}")
-        # Starts the MQTT client with specified ID, and defines all callbacks
+        # Starts the MQTT client with specified ID, passed through the input arguments, and defines all callbacks
         self.client = mqtt.Client(client_id=client_id)
         self.client.on_connect = self.on_connect
         self.client.on_disconnect = self.on_disconnect
