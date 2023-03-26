@@ -17,6 +17,7 @@ log_name = log_folder + client_id + ".log"
 broker_address = config['broker_address']
 main_topic = config['topics']['main_topic']
 begin_client = config['topics']['begin_client']
+finish_client = config['topics']['finish_client']
 client_done = config['topics']['client_done']
 system_runs = config['system_details']['different_runs']
 
@@ -50,12 +51,12 @@ class MQTT_Server:
             # If the total of clients done equals the amount of clients of the run, run is considered finished and packet loss is calculated the logged
             if self.run_clients_done == self.run_client_amount:
                 # Once a run is done, packet loss and actual frequency are calculated and logged
-                self.run_loss = 100-((self.run_counter/self.run_msg_amount)*100)
+                self.run_loss = 100-((self.run_counter/self.run_total_msg_amount)*100)
                 self.run_exec_time = self.run_finish_time-self.run_start_time
-                self.run_actual_freq = 1/(self.run_exec_time/{self.run_msg_amount-1})
+                self.run_actual_freq = 1/(self.run_exec_time/(self.run_msg_amount-1))
                 logging.info(f"All {self.run_client_amount} clients finished publishing for this execution")
-                logging.info(f"Received {self.run_counter} out of {self.run_msg_amount} messages, totalling packet loss at {round(self.run_loss,3)}%")
-                logging.info(f"Total execution time was {self.run_exec_time}, totalling actual frequency at {round(self.run_actual_freq,2)}Hz")
+                logging.info(f"Received {self.run_counter} out of {self.run_total_msg_amount} messages, totalling packet loss at {round(self.run_loss,3)}%")
+                logging.info(f"Total execution time was {round(self.run_exec_time,2)}, totalling actual frequency at {round(self.run_actual_freq,2)}Hz")
                 self.client.unsubscribe(main_topic)
                 self.run_finished = True
 
@@ -67,9 +68,6 @@ class MQTT_Server:
     def sys_handler(self):
         # The config file has a parameter with the amount of system runs to be performed, which will be iterated in here
         for run in range(system_runs):
-            # This is used to wait for the previous run to finish and clean things up before starting a new one
-            while self.run_finished == False:
-                time.sleep(1)
             # Resets all needed variables
             self.run_counter = 0
             self.run_loss = 0
@@ -85,9 +83,10 @@ class MQTT_Server:
             self.run_msg_size = config['system_details']['msg_size'][run]
             self.run_msg_freq = config['system_details']['msg_freq'][run]
             self.run_total_msg_amount = self.run_msg_amount * self.run_client_amount
-            # Subscribes to the message topic with the correct QoS to be used in the run, and logs all the information of the run
+            # Subscribes to the message topic with the correct QoS to be used in the run, and logs all the information of the run, and also subscribes to the client done topic
             self.client.subscribe(main_topic, qos=self.run_msg_qos)
-            logging.warning(f"NEW EXECUTION")
+            self.client.subscribe(client_done, qos=0)
+            logging.warning(f"STARTING NEW RUN")
             logging.info(f"Subscribed to {main_topic} topic with QoS level {self.run_msg_qos}")
             logging.info(f"System details: {self.run_client_amount} clients with {self.run_msg_amount} messages each using QoS level {self.run_msg_qos}, for a total of {self.run_total_msg_amount} messages")
             # Dumps the information to a JSON payload to send to all the clients, and publishes it to the client topic
@@ -95,13 +94,16 @@ class MQTT_Server:
             self.client.publish(begin_client, client_config, qos=0)
             logging.info(f"Sent configuration and start order to all the clients for run #{run+1}")
             self.run_finished = False
+            # This is used to wait for the previous run to finish and clean things up before starting a new one
+            while self.run_finished == False:
+                time.sleep(1)
         # Once all runs are finished, cleans up everything and exits thread
         self.cleanup()
         return
     
     # Cleanup function, to inform all clients all runs are finished and gracefully closes the connection with the broker
     def cleanup(self):
-        self.client.publish(begin_client, None, qos=0)
+        self.client.publish(finish_client, None, qos=0)
         time.sleep(2)
         self.client.disconnect()
 

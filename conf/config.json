@@ -1,17 +1,18 @@
 {
     "log_folder": "logs/",
-    "broker_address": "laptop-broker",
+    "broker_address": "localhost",
     "topics":{
         "main_topic": "mqtt_qos/main_topic",
         "begin_client": "mqtt_qos/begin_client",
+        "finish_client": "mqtt_qos/finish_client",
         "client_done": "mqtt_qos/client_done"
     },
     "system_details":{
-        "different_runs": 4,
-        "client_amount": [1,2,4,8],
-        "msg_qos": [0,1,1,2],
-        "msg_amount": [1000,1000,1000,1000],
-        "msg_size": [1250,12500,125000,1250],
-        "msg_freq": [20,50,100,150]
+        "different_runs": 2,
+        "client_amount": [2,2],
+        "msg_qos": [0,2],
+        "msg_amount": [1000,1000],
+        "msg_size": [12500,12500],
+        "msg_freq": [50,50]
     }
 }
