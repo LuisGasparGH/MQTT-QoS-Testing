@@ -98,6 +98,7 @@ class MQTT_Client:
 
     # Starts the class with all the variables necessary
     def __init__(self):
+        logging.warning(f"NEW SYSTEM EXECUTION")
         self.msg_qos = 0
         self.msg_amount = 0
         self.msg_size = 0
