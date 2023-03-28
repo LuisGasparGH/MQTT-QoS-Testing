@@ -88,7 +88,7 @@ class MQTT_Server:
             self.client.subscribe(client_done, qos=0)
             logging.warning(f"STARTING NEW RUN")
             logging.info(f"Subscribed to {main_topic} topic with QoS level {self.run_msg_qos}")
-            logging.info(f"System details: {self.run_client_amount} clients with {self.run_msg_amount} messages each using QoS level {self.run_msg_qos}, for a total of {self.run_total_msg_amount} messages")
+            logging.info(f"System details: {self.run_client_amount} clients with {self.run_msg_amount} messages each, with {self.run_msg_size} bytes sent at {self.run_msg_freq} Hz, using QoS level {self.run_msg_qos}, for a total of {self.run_total_msg_amount} messages")
             # Dumps the information to a JSON payload to send to all the clients, and publishes it to the client topic
             client_config = json.dumps({"msg_qos": self.run_msg_qos, "msg_amount": self.run_msg_amount, "msg_size": self.run_msg_size, "msg_freq": self.run_msg_freq})
             self.client.publish(begin_client, client_config, qos=0)
