@@ -55,6 +55,7 @@ class MQTT_Client:
             self.msg_amount = client_config['msg_amount']
             self.msg_size = client_config['msg_size']
             self.msg_freq = client_config['msg_freq']
+            self.sleep_time = (1/self.msg_freq)
             self.sent_counter = 0
             # Logs the run details and starts the run handler thread
             logging.info(f"Message details: {self.msg_amount} messages of {self.msg_size} bytes using QoS level {self.msg_qos} with {self.msg_freq} Hz frequency")
@@ -80,9 +81,14 @@ class MQTT_Client:
         logging.info(f"Starting publish of {self.msg_amount} messages with QoS level {self.msg_qos}")
         # This cycle is iterated as many times as messages that need to be published in this run
         for msg in range(self.msg_amount):
+            # Measures time of iteration start with a monotonic clock in order to precisely meet the frequency requirements
+            time_start = time.monotonic()
+            time_end = time_start+self.sleep_time
             # Messages are published with the correct QoS, and the thread sleeps for the necessary time to meet the frequency
             self.client.publish(main_topic, payload, qos=self.msg_qos)
-            time.sleep(1/self.msg_freq)
+            # Sleeps the thread for the remainder time of the current period in execution in order to meet the precise frequency
+            if time.monotonic() < time_end:
+                time.sleep(time_end - time.monotonic())
         # After all messages are sent, the client waits for a period of 45 seconds to make sure the server is finished processing all received messages
         time.sleep(10)
         # Once this sleep ends, it informs that it has finished publishing messages for this run, sending a None payload to the client done topic

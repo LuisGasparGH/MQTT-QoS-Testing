@@ -42,8 +42,8 @@ class MQTT_Server:
         if str(msg.topic) == main_topic:
             # In order to measure actual publishing frequency, as perceived from the server side, a total runtime of an execution is measured
             if self.run_counter == 0:
-                self.run_start_time = time.time()
-            self.run_finish_time = time.time()
+                self.run_start_time = time.monotonic()
+            self.run_finish_time = time.monotonic()
             self.run_counter += 1
         # If the topic is the client done topic, it means that one of the clients has finished publishing of his messages
         elif str(msg.topic) == client_done:
@@ -56,7 +56,7 @@ class MQTT_Server:
                 self.run_actual_freq = 1/(self.run_exec_time/(self.run_msg_amount-1))
                 logging.info(f"All {self.run_client_amount} clients finished publishing for this execution")
                 logging.info(f"Received {self.run_counter} out of {self.run_total_msg_amount} messages, totalling packet loss at {round(self.run_loss,3)}%")
-                logging.info(f"Total execution time was {round(self.run_exec_time,2)}, totalling actual frequency at {round(self.run_actual_freq,2)}Hz")
+                logging.info(f"Total execution time was {round(self.run_exec_time,2)} seconds, totalling actual frequency at {round(self.run_actual_freq,2)} Hz")
                 self.client.unsubscribe(main_topic)
                 self.run_finished = True
 
