@@ -1,5 +1,10 @@
 {
-    "log_folder": "logs/",
+    "logging":{
+        "folder": "logs/",
+        "normal": "main-logger",
+        "timestamps": "timestamp-logger",
+        "pyshark": "pyshark-logger"
+    },  
     "broker_address": "laptop-broker",
     "topics":{
         "main_topic": "mqtt_qos/main_topic",
