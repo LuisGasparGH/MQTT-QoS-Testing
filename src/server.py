@@ -62,29 +62,34 @@ class MQTT_Server:
         # If the topic is the main one, it is just a normal message during that run, and the run counter will increase
         if str(msg.topic) == main_topic:
             # In order to measure actual publishing frequency, as perceived from the server side, a total runtime of an execution is measured
-            if self.run_counter_intime == 0:
+            if self.run_counter == 0:
                 self.run_start_time = time.monotonic()
                 self.run_theorical_finish_time = self.run_start_time + self.run_theorical_time
             self.run_finish_time = time.monotonic()
+            self.run_counter += 1
             if self.run_finish_time < self.run_theorical_finish_time:
-                self.run_counter_intime += 1
+                self.run_intime += 1
             else:
-                self.run_counter_late += 1
-            self.timestamp_logger.info(f"Received message #{self.run_counter} from the {main_topic} topic (message id: {msg.id})")
+                self.run_late += 1
+            self.timestamp_logger.info(f"Received message #{self.run_counter} from the {main_topic} topic (message id: {msg.mid})")
         # If the topic is the client done topic, it means that one of the clients has finished publishing of his messages
         elif str(msg.topic) == client_done:
             self.run_clients_done += 1
             # If the total of clients done equals the amount of clients of the run, run is considered finished and packet loss is calculated the logged
             if self.run_clients_done == self.run_client_amount:
                 # Once a run is done, packet loss and actual frequency are calculated and logged
-                self.run_counter_total = self.run_counter_intime + self.run_counter_late
-                self.run_loss = 100-(((self.run_counter + self.run_counter_late)/self.run_total_msg_amount)*100)
+                self.run_loss = 100-((self.run_counter/self.run_total_msg_amount)*100)
                 self.run_exec_time = self.run_finish_time-self.run_start_time
                 self.run_actual_freq = 1/(self.run_exec_time/(self.run_msg_amount-1))
-                self.run_time_factor = (self.run_exec_time/self.run_theorical_time)*100
+                self.run_time_factor = (self.run_theorical_time/self.run_exec_time)*100
                 self.main_logger.info(f"All {self.run_client_amount} clients finished publishing for this execution")
-                self.main_logger.info(f"Received {self.run_counter_total} out of {self.run_total_msg_amount} messages, with {self.run_counter_intime} messages inside the time window, and {self.run_counter_late} outside the time window, totalling packet loss at {round(self.run_loss,3)}%")
-                self.main_logger.info(f"Total execution time was {round(self.run_exec_time,2)} seconds, making it {self.run_time_factor}% of the theorical time, totalling actual frequency at {round(self.run_actual_freq,2)} Hz")
+                self.main_logger.info(f"Received {self.run_counter} out of {self.run_total_msg_amount} messages")
+                self.main_logger.info(f"{self.run_intime} messages were received inside the time window")
+                self.main_logger.info(f"{self.run_late} messages were received outside the time window")
+                self.main_logger.info(f"Calculated packet loss: {round(self.run_loss,4)}%")
+                self.main_logger.info(f"Total execution time was {round(self.run_exec_time,4)} seconds")
+                self.main_logger.info(f"Time fraction was {round(self.run_time_factor,4)}% of the theorical time")
+                self.main_logger.info(f"Actual frequency was {round(self.run_actual_freq,4)} Hz")
                 self.client.unsubscribe(main_topic)
                 self.run_finished = True
 
@@ -97,9 +102,9 @@ class MQTT_Server:
         # The config file has a parameter with the amount of system runs to be performed, which will be iterated in here
         for run in range(system_runs):
             # Resets all needed variables
-            self.run_counter_total = 0
-            self.run_counter_intime = 0
-            self.run_counter_late = 0
+            self.run_counter = 0
+            self.run_intime = 0
+            self.run_late = 0
             self.run_loss = 0
             self.run_start_time = 0
             self.run_finish_time = 0
@@ -115,13 +120,20 @@ class MQTT_Server:
             self.run_msg_size = config['system_details']['msg_size'][run]
             self.run_msg_freq = config['system_details']['msg_freq'][run]
             self.run_total_msg_amount = self.run_msg_amount * self.run_client_amount
-            self.run_theorical_time = self.run_msg_amount / self.run_msg_freq
+            self.run_theorical_time = (self.run_msg_amount-1) / self.run_msg_freq
             # Subscribes to the message topic with the correct QoS to be used in the run, and logs all the information of the run, and also subscribes to the client done topic
             self.client.subscribe(main_topic, qos=self.run_msg_qos)
             self.client.subscribe(client_done, qos=0)
             self.main_logger.warning(f"STARTING NEW RUN")
             self.main_logger.info(f"Subscribed to {main_topic} topic with QoS level {self.run_msg_qos}")
-            self.main_logger.info(f"System details: {self.run_client_amount} clients with {self.run_msg_amount} messages each, with {self.run_msg_size} bytes sent at {self.run_msg_freq} Hz, using QoS level {self.run_msg_qos}, for a total of {self.run_total_msg_amount} messages, with an expected theorical time of {self.run_theorical_time} seconds")
+            self.main_logger.info(f"Client amount: {self.run_client_amount} clients")
+            self.main_logger.info(f"Message amount per client: {self.run_msg_amount} messages")
+            self.main_logger.info(f"Total message amount: {self.run_total_msg_amount} messages")
+            self.main_logger.info(f"Message size: {self.run_msg_size} bytes")
+            self.main_logger.info(f"Publishing frequency: {self.run_msg_freq} Hz")
+            self.main_logger.info(f"QoS level: {self.run_msg_qos}")
+            self.main_logger.info(f"Theorical time: {self.run_theorical_time} seconds")
+            # ADD: LOG THEORICAL FINISH AND ACTUAL FINISH TIME
             # Dumps the information to a JSON payload to send to all the clients, and publishes it to the client topic
             client_config = json.dumps({"msg_qos": self.run_msg_qos, "msg_amount": self.run_msg_amount, "msg_size": self.run_msg_size, "msg_freq": self.run_msg_freq})
             self.client.publish(begin_client, client_config, qos=0)
@@ -143,6 +155,9 @@ class MQTT_Server:
     # Starts the class with all the variables necessary
     def __init__(self):
         self.logger_setup()
+        self.main_logger.warning(f"=============================================================================")
+        self.timestamp_logger.warning(f"=============================================================================")
+        self.pyshark_logger.warning(f"=============================================================================")
         self.main_logger.warning(f"NEW SYSTEM EXECUTION")
         self.run_finished = True
         self.run_client_amount = 0
@@ -152,9 +167,13 @@ class MQTT_Server:
         self.run_total_msg_amount = 0
         self.clients_done = 0
         self.run_counter = 0
+        self.run_intime = 0
+        self.run_late = 0
         self.run_loss = 0
         self.run_start_time = 0
         self.run_finish_time = 0
+        self.run_theorical_finish_time = 0
+        self.run_theorical_time = 0
         self.run_exec_time = 0
         self.run_actual_freq = 0
         self.run_clients_done = 0

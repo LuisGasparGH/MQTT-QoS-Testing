@@ -79,7 +79,10 @@ class MQTT_Client:
             self.sleep_time = (1/self.msg_freq)
             self.sent_counter = 0
             # Logs the run details and starts the run handler thread
-            self.main_logger.info(f"Message details: {self.msg_amount} messages of {self.msg_size} bytes using QoS level {self.msg_qos} with {self.msg_freq} Hz frequency")
+            self.main_logger.info(f"Message amount: {self.msg_amount} messages")
+            self.main_logger.info(f"Message size: {self.msg_size} bytes")
+            self.main_logger.info(f"QoS level: {self.msg_qos}")
+            self.main_logger.info(f"Publish frequency: {self.msg_freq} Hz")
             self.handler_thread.start()
 
     # Callback for the when the client object successfully completes the publishing of a message (including necessary handshake for QoS levels 1 and 2)
@@ -126,6 +129,9 @@ class MQTT_Client:
     # Starts the class with all the variables necessary
     def __init__(self):
         self.logger_setup()
+        self.main_logger.warning(f"=============================================================================")
+        self.timestamp_logger.warning(f"=============================================================================")
+        self.pyshark_logger.warning(f"=============================================================================")
         self.main_logger.warning(f"NEW SYSTEM EXECUTION")
         self.msg_qos = 0
         self.msg_amount = 0

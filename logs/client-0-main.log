@@ -1,0 +1,30 @@
+2023-04-26 12:01:52,660 ERROR: =============================================================================
+2023-04-26 12:01:52,660 WARNING: NEW SYSTEM EXECUTION
+2023-04-26 12:01:52,660 INFO: Creating MQTT Client with ID client-0
+2023-04-26 12:01:52,661 INFO: Connected to the broker at localhost
+2023-04-26 12:01:52,661 INFO: Subscribed to mqtt_qos/begin_client topic with QoS 0
+2023-04-26 12:01:52,661 INFO: Subscribed to mqtt_qos/finish_client topic with QoS 0
+2023-04-26 12:01:53,338 WARNING: STARTING NEW RUN
+2023-04-26 12:01:53,338 INFO: Start order received from the server using topic mqtt_qos/begin_client
+2023-04-26 12:01:53,339 INFO: Message amount: 1000 messages
+2023-04-26 12:01:53,339 INFO: Message size: 10 bytes
+2023-04-26 12:01:53,339 INFO: QoS level: 0
+2023-04-26 12:01:53,339 INFO: Publish frequency: 50 Hz
+2023-04-26 12:01:55,341 INFO: Starting publish of 1000 messages with QoS level 0
+2023-04-26 12:02:15,413 INFO: Publish of all 1000 messages complete
+2023-04-26 12:02:26,372 INFO: Disconnected from broker at localhost
+2023-04-26 12:04:16,523 ERROR: =============================================================================
+2023-04-26 12:04:16,523 WARNING: NEW SYSTEM EXECUTION
+2023-04-26 12:04:16,523 INFO: Creating MQTT Client with ID client-0
+2023-04-26 12:04:16,524 INFO: Connected to the broker at localhost
+2023-04-26 12:04:16,524 INFO: Subscribed to mqtt_qos/begin_client topic with QoS 0
+2023-04-26 12:04:16,524 INFO: Subscribed to mqtt_qos/finish_client topic with QoS 0
+2023-04-26 12:04:17,012 WARNING: STARTING NEW RUN
+2023-04-26 12:04:17,012 INFO: Start order received from the server using topic mqtt_qos/begin_client
+2023-04-26 12:04:17,013 INFO: Message amount: 1000 messages
+2023-04-26 12:04:17,013 INFO: Message size: 10 bytes
+2023-04-26 12:04:17,013 INFO: QoS level: 0
+2023-04-26 12:04:17,013 INFO: Publish frequency: 50 Hz
+2023-04-26 12:04:19,014 INFO: Starting publish of 1000 messages with QoS level 0
+2023-04-26 12:04:39,081 INFO: Publish of all 1000 messages complete
+2023-04-26 12:04:50,045 INFO: Disconnected from broker at localhost
