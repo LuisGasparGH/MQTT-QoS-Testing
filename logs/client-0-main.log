@@ -1,0 +1,17 @@
+2023-04-29 16:15:49,534 DEBUG: =============================================================================
+2023-04-29 16:15:49,534 DEBUG: NEW SYSTEM EXECUTION
+2023-04-29 16:15:49,534 INFO: Creating MQTT Client with ID client-0
+2023-04-29 16:15:49,535 INFO: Connected to the broker at localhost
+2023-04-29 16:15:49,535 INFO: Subscribed to mqtt_qos/begin_client topic with QoS 0
+2023-04-29 16:15:49,535 INFO: Subscribed to mqtt_qos/finish_client topic with QoS 0
+2023-04-29 16:15:54,895 DEBUG: STARTING NEW RUN
+2023-04-29 16:15:54,895 INFO: Start order received from the server using topic mqtt_qos/begin_client
+2023-04-29 16:15:54,895 INFO: Message amount: 1000 messages
+2023-04-29 16:15:54,895 INFO: Message size: 2500 bytes
+2023-04-29 16:15:54,895 INFO: QoS level: 0
+2023-04-29 16:15:54,895 INFO: Publish frequency: 5 Hz
+2023-04-29 16:15:56,898 INFO: Starting publish of 1000 messages with QoS level 0
+2023-04-29 16:19:16,869 INFO: Publish of all 1000 messages complete
+2023-04-29 16:19:17,069 INFO: Sleeping for 10 seconds to allow for retransmission finishing
+2023-04-29 16:19:27,080 INFO: Informed server that client is finished
+2023-04-29 16:19:27,116 INFO: Disconnected from broker at localhost
