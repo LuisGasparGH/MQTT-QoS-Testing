@@ -1,0 +1,29 @@
+2023-04-29 16:15:54,892 DEBUG: =============================================================================
+2023-04-29 16:15:54,892 DEBUG: NEW SYSTEM EXECUTION
+2023-04-29 16:15:54,893 INFO: Creating MQTT Client with ID server
+2023-04-29 16:15:54,894 INFO: Connected to the broker at localhost
+2023-04-29 16:15:54,894 DEBUG: STARTING NEW RUN
+2023-04-29 16:15:54,894 INFO: Subscribed to mqtt_qos/main_topic topic with QoS level 0
+2023-04-29 16:15:54,894 INFO: Client amount: 1 clients
+2023-04-29 16:15:54,894 INFO: Message amount per client: 1000 messages
+2023-04-29 16:15:54,894 INFO: Total message amount: 1000 messages
+2023-04-29 16:15:54,894 INFO: Message size: 2500 bytes
+2023-04-29 16:15:54,894 INFO: Publishing frequency: 5 Hz
+2023-04-29 16:15:54,894 INFO: QoS level: 0
+2023-04-29 16:15:54,894 INFO: Theorical execution time (for 999 messages): 199.8 seconds
+2023-04-29 16:15:54,895 INFO: Sent configuration and start order to all the clients for run #1
+2023-04-29 16:19:27,080 INFO: All 1 clients finished publishing for this execution
+2023-04-29 16:19:27,080 DEBUG: RUN RESULTS
+2023-04-29 16:19:27,080 INFO: Received 1000 out of 1000 messages
+2023-04-29 16:19:27,080 INFO: Messages received inside time window: 999
+2023-04-29 16:19:27,080 INFO: Messages received outside time window: 1
+2023-04-29 16:19:27,080 INFO: Calculated packet loss: 0.0%
+2023-04-29 16:19:27,080 INFO: Run start time (of first received message): 3718.6
+2023-04-29 16:19:27,080 INFO: Run theorical finish time: 3918.4
+2023-04-29 16:19:27,080 INFO: Run actual finish time: 3918.58
+2023-04-29 16:19:27,080 INFO: Total execution time (for 999 messages): 199.97 seconds
+2023-04-29 16:19:27,080 INFO: Time factor: 100.09% of the theorical time
+2023-04-29 16:19:27,080 INFO: Actual frequency: 5.0 Hz
+2023-04-29 16:19:27,080 INFO: Frequency factor: 99.91%
+2023-04-29 16:19:29,117 INFO: Disconnected from broker at localhost
+2023-04-29 16:19:29,118 INFO: Disconnected from broker at localhost

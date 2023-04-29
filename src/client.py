@@ -24,26 +24,31 @@ client_done = config['topics']['client_done']
 
 # Class of the client code
 class MQTT_Client:
-    # Configures the logger which will contain all execution details for further analysis
+    # Configures the loggers which will contain all execution details for further analysis
     def logger_setup(self):
+        # Sets up the formatter and handlers needed for the loggers
+        # There are a total of three distinct loggers
         formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s')
+        # main_logger - used for normal execution and results reporting
         main_log = log_folder + client_id + "-main.log"
-        timestamp_log = log_folder + client_id + "-timestamp.log"
-        pyshark_log = log_folder + client_id + "-pyshark.log"
         main_handler = logging.FileHandler(main_log, mode = 'a')
-        timestamp_handler = logging.FileHandler(timestamp_log, mode = 'a')
-        pyshark_handler = logging.FileHandler(pyshark_log, mode = 'a')
         main_handler.setFormatter(formatter)
-        timestamp_handler.setFormatter(formatter)
-        pyshark_handler.setFormatter(formatter)
         self.main_logger = logging.getLogger(main_logger)
-        self.timestamp_logger = logging.getLogger(timestamp_logger)
-        self.pyshark_logger = logging.getLogger(pyshark_logger)
-        self.main_logger.setLevel(logging.INFO)
-        self.timestamp_logger.setLevel(logging.INFO)
-        self.pyshark_logger.setLevel(logging.INFO)
+        self.main_logger.setLevel(logging.DEBUG)
         self.main_logger.addHandler(main_handler)
+        # timestamp_logger - used to have an output of all timestamps of messages sent/received
+        timestamp_log = log_folder + client_id + "-timestamp.log"
+        timestamp_handler = logging.FileHandler(timestamp_log, mode = 'a')
+        timestamp_handler.setFormatter(formatter)
+        self.timestamp_logger = logging.getLogger(timestamp_logger)
+        self.timestamp_logger.setLevel(logging.DEBUG)
         self.timestamp_logger.addHandler(timestamp_handler)
+        # pyshark_logger - used to have an output of all packets captured by PyShark
+        pyshark_log = log_folder + client_id + "-pyshark.log"
+        pyshark_handler = logging.FileHandler(pyshark_log, mode = 'a')
+        pyshark_handler.setFormatter(formatter)
+        self.pyshark_logger = logging.getLogger(pyshark_logger)
+        self.pyshark_logger.setLevel(logging.DEBUG)
         self.pyshark_logger.addHandler(pyshark_handler)
 
     # Callback for when the client object successfully connects to the broker
@@ -66,7 +71,7 @@ class MQTT_Client:
             self.cleanup()
         # If not, the topic will be the begin client, and the message will contain configuration information for the next run, such as message size, amount, publishing frequency and QoS level to be used
         elif str(msg.topic) == begin_client:
-            self.main_logger.warning(f"STARTING NEW RUN")
+            self.main_logger.debug(f"STARTING NEW RUN")
             self.main_logger.info(f"Start order received from the server using topic {str(msg.topic)}")
             # Declares the thread where the run handler will run. Has to be done everytime a new run is executed
             self.handler_thread = threading.Thread(target = self.run_handler, args = ())
@@ -112,11 +117,13 @@ class MQTT_Client:
             self.client.publish(main_topic, payload, qos=self.msg_qos)
             # Sleeps the thread for the remainder time of the current period in execution in order to meet the precise frequency
             if time.monotonic() < time_end:
-                time.sleep(time_end - time.monotonic())
+                time.sleep(time_end - time.monotonic() - 0.00008)
         # After all messages are sent, the client waits for a period of 45 seconds to make sure the server is finished processing all received messages
+        self.main_logger.info(f"Sleeping for 10 seconds to allow for retransmission finishing")
         time.sleep(10)
         # Once this sleep ends, it informs that it has finished publishing messages for this run, sending a None payload to the client done topic
         self.client.publish(client_done, None, qos=0)
+        self.main_logger.info(f"Informed server that client is finished")
         # Since this threaded function only runs during an execution, it returns after it's done, and the main thread waits for a new run order
         return
 
@@ -129,15 +136,10 @@ class MQTT_Client:
     # Starts the class with all the variables necessary
     def __init__(self):
         self.logger_setup()
-        self.main_logger.warning(f"=============================================================================")
-        self.timestamp_logger.warning(f"=============================================================================")
-        self.pyshark_logger.warning(f"=============================================================================")
-        self.main_logger.warning(f"NEW SYSTEM EXECUTION")
-        self.msg_qos = 0
-        self.msg_amount = 0
-        self.msg_size = 0
-        self.msg_freq = 0
-        self.sent_counter = 0
+        self.main_logger.debug(f"=============================================================================")
+        self.timestamp_logger.debug(f"=============================================================================")
+        self.pyshark_logger.debug(f"=============================================================================")
+        self.main_logger.debug(f"NEW SYSTEM EXECUTION")
         self.main_logger.info(f"Creating MQTT Client with ID {client_id}")
         # Starts the MQTT client with specified ID, passed through the input arguments, and defines all callbacks
         self.client = mqtt.Client(client_id=client_id)

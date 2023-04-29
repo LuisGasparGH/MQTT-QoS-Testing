@@ -25,26 +25,31 @@ system_runs = config['system_details']['different_runs']
 
 # Class of the server code
 class MQTT_Server:
-    # Configures the logger, which will contain all execution details for further analysis
+    # Configures the loggers which will contain all execution details for further analysis
     def logger_setup(self):
+        # Sets up the formatter and handlers needed for the loggers
+        # There are a total of three distinct loggers
         formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s')
+        # main_logger - used for normal execution and results reporting
         main_log = log_folder + client_id + "-main.log"
-        timestamp_log = log_folder + client_id + "-timestamp.log"
-        pyshark_log = log_folder + client_id + "-pyshark.log"
         main_handler = logging.FileHandler(main_log, mode = 'a')
-        timestamp_handler = logging.FileHandler(timestamp_log, mode = 'a')
-        pyshark_handler = logging.FileHandler(pyshark_log, mode = 'a')
         main_handler.setFormatter(formatter)
-        timestamp_handler.setFormatter(formatter)
-        pyshark_handler.setFormatter(formatter)
         self.main_logger = logging.getLogger(main_logger)
-        self.timestamp_logger = logging.getLogger(timestamp_logger)
-        self.pyshark_logger = logging.getLogger(pyshark_logger)
-        self.main_logger.setLevel(logging.INFO)
-        self.timestamp_logger.setLevel(logging.INFO)
-        self.pyshark_logger.setLevel(logging.INFO)
+        self.main_logger.setLevel(logging.DEBUG)
         self.main_logger.addHandler(main_handler)
+        # timestamp_logger - used to have an output of all timestamps of messages sent/received
+        timestamp_log = log_folder + client_id + "-timestamp.log"
+        timestamp_handler = logging.FileHandler(timestamp_log, mode = 'a')
+        timestamp_handler.setFormatter(formatter)
+        self.timestamp_logger = logging.getLogger(timestamp_logger)
+        self.timestamp_logger.setLevel(logging.DEBUG)
         self.timestamp_logger.addHandler(timestamp_handler)
+        # pyshark_logger - used to have an output of all packets captured by PyShark
+        pyshark_log = log_folder + client_id + "-pyshark.log"
+        pyshark_handler = logging.FileHandler(pyshark_log, mode = 'a')
+        pyshark_handler.setFormatter(formatter)
+        self.pyshark_logger = logging.getLogger(pyshark_logger)
+        self.pyshark_logger.setLevel(logging.DEBUG)
         self.pyshark_logger.addHandler(pyshark_handler)
 
     # Callback for when the client object successfully connects to the broker
@@ -78,18 +83,25 @@ class MQTT_Server:
             # If the total of clients done equals the amount of clients of the run, run is considered finished and packet loss is calculated the logged
             if self.run_clients_done == self.run_client_amount:
                 # Once a run is done, packet loss and actual frequency are calculated and logged
-                self.run_loss = 100-((self.run_counter/self.run_total_msg_amount)*100)
+                # ADD: LOG THEORICAL FINISH AND ACTUAL FINISH TIME
+                self.run_packet_loss = 100-((self.run_counter/self.run_total_msg_amount)*100)
                 self.run_exec_time = self.run_finish_time-self.run_start_time
                 self.run_actual_freq = 1/(self.run_exec_time/(self.run_msg_amount-1))
-                self.run_time_factor = (self.run_theorical_time/self.run_exec_time)*100
+                self.run_time_factor = (self.run_exec_time/self.run_theorical_time)*100
+                self.run_frequency_factor = (self.run_actual_freq/self.run_msg_freq)*100
                 self.main_logger.info(f"All {self.run_client_amount} clients finished publishing for this execution")
+                self.main_logger.debug(f"RUN RESULTS")
                 self.main_logger.info(f"Received {self.run_counter} out of {self.run_total_msg_amount} messages")
-                self.main_logger.info(f"{self.run_intime} messages were received inside the time window")
-                self.main_logger.info(f"{self.run_late} messages were received outside the time window")
-                self.main_logger.info(f"Calculated packet loss: {round(self.run_loss,4)}%")
-                self.main_logger.info(f"Total execution time was {round(self.run_exec_time,4)} seconds")
-                self.main_logger.info(f"Time fraction was {round(self.run_time_factor,4)}% of the theorical time")
-                self.main_logger.info(f"Actual frequency was {round(self.run_actual_freq,4)} Hz")
+                self.main_logger.info(f"Messages received inside time window: {self.run_intime}")
+                self.main_logger.info(f"Messages received outside time window: {self.run_late}")
+                self.main_logger.info(f"Calculated packet loss: {round(self.run_packet_loss,2)}%")
+                self.main_logger.info(f"Run start time (of first received message): {round(self.run_start_time,2)}")
+                self.main_logger.info(f"Run theorical finish time: {round(self.run_theorical_finish_time,2)}")
+                self.main_logger.info(f"Run actual finish time: {round(self.run_finish_time,2)}")
+                self.main_logger.info(f"Total execution time (for {self.run_msg_amount-1} messages): {round(self.run_exec_time,2)} seconds")
+                self.main_logger.info(f"Time factor: {round(self.run_time_factor,2)}% of the theorical time")
+                self.main_logger.info(f"Actual frequency: {round(self.run_actual_freq,2)} Hz")
+                self.main_logger.info(f"Frequency factor: {round(self.run_frequency_factor,2)}%")
                 self.client.unsubscribe(main_topic)
                 self.run_finished = True
 
@@ -105,13 +117,6 @@ class MQTT_Server:
             self.run_counter = 0
             self.run_intime = 0
             self.run_late = 0
-            self.run_loss = 0
-            self.run_start_time = 0
-            self.run_finish_time = 0
-            self.run_theorical_finish_time = 0
-            self.run_theorical_time = 0
-            self.run_exec_time = 0
-            self.run_actual_freq = 0
             self.run_clients_done = 0
             # Gathers all the information for the next run to be performed, such as client amount, QoS to be used, message amount, size and publishing frequency
             self.run_client_amount = config['system_details']['client_amount'][run]
@@ -124,7 +129,7 @@ class MQTT_Server:
             # Subscribes to the message topic with the correct QoS to be used in the run, and logs all the information of the run, and also subscribes to the client done topic
             self.client.subscribe(main_topic, qos=self.run_msg_qos)
             self.client.subscribe(client_done, qos=0)
-            self.main_logger.warning(f"STARTING NEW RUN")
+            self.main_logger.debug(f"STARTING NEW RUN")
             self.main_logger.info(f"Subscribed to {main_topic} topic with QoS level {self.run_msg_qos}")
             self.main_logger.info(f"Client amount: {self.run_client_amount} clients")
             self.main_logger.info(f"Message amount per client: {self.run_msg_amount} messages")
@@ -132,8 +137,7 @@ class MQTT_Server:
             self.main_logger.info(f"Message size: {self.run_msg_size} bytes")
             self.main_logger.info(f"Publishing frequency: {self.run_msg_freq} Hz")
             self.main_logger.info(f"QoS level: {self.run_msg_qos}")
-            self.main_logger.info(f"Theorical time: {self.run_theorical_time} seconds")
-            # ADD: LOG THEORICAL FINISH AND ACTUAL FINISH TIME
+            self.main_logger.info(f"Theorical execution time (for {self.run_msg_amount-1} messages): {self.run_theorical_time} seconds")
             # Dumps the information to a JSON payload to send to all the clients, and publishes it to the client topic
             client_config = json.dumps({"msg_qos": self.run_msg_qos, "msg_amount": self.run_msg_amount, "msg_size": self.run_msg_size, "msg_freq": self.run_msg_freq})
             self.client.publish(begin_client, client_config, qos=0)
@@ -155,28 +159,11 @@ class MQTT_Server:
     # Starts the class with all the variables necessary
     def __init__(self):
         self.logger_setup()
-        self.main_logger.warning(f"=============================================================================")
-        self.timestamp_logger.warning(f"=============================================================================")
-        self.pyshark_logger.warning(f"=============================================================================")
-        self.main_logger.warning(f"NEW SYSTEM EXECUTION")
+        self.main_logger.debug(f"=============================================================================")
+        self.timestamp_logger.debug(f"=============================================================================")
+        self.pyshark_logger.debug(f"=============================================================================")
+        self.main_logger.debug(f"NEW SYSTEM EXECUTION")
         self.run_finished = True
-        self.run_client_amount = 0
-        self.run_msg_qos = 0
-        self.run_msg_amount = 0
-        self.run_msg_freq = 0
-        self.run_total_msg_amount = 0
-        self.clients_done = 0
-        self.run_counter = 0
-        self.run_intime = 0
-        self.run_late = 0
-        self.run_loss = 0
-        self.run_start_time = 0
-        self.run_finish_time = 0
-        self.run_theorical_finish_time = 0
-        self.run_theorical_time = 0
-        self.run_exec_time = 0
-        self.run_actual_freq = 0
-        self.run_clients_done = 0
         # Declares the thread where the system handler will run
         self.handler_thread = threading.Thread(target = self.sys_handler, args=())
         self.main_logger.info(f"Creating MQTT Client with ID {client_id}")
