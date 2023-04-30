@@ -114,9 +114,11 @@ class MQTT_Client:
     # Sniffing function, responsible for running PyShark and capturing all network traffic for further analysis in Wireshark
     def sniffing_handler(self):
         self.main_logger.info(f"Sniffing thread started for this run")
+        # Starts a LiveCapture from PyShark on the correct interface, with filters applied to only capture MQTT or TCP port 1883 packets, and saves it to the previously named file
         self.network_capture = pyshark.LiveCapture(interface=wshark_interface, bpf_filter="tcp port 1883", output_file = self.wshark_file)
         for packet in self.network_capture.sniff_continuously():
             self.pyshark_logger.info(f"Packet captured: {packet}")
+            # Since the sniffing has to be done once per run (every run has a different file), the sniffing thread stops when it detects an MQTT message to the client_done topic
             if packet.mqtt.mqtt.topic == client_done:
                 return
     
