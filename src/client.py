@@ -114,10 +114,10 @@ class MQTT_Client:
     # Sniffing function, responsible for running PyShark and capturing all network traffic for further analysis in Wireshark
     def sniffing_handler(self):
         self.main_logger.info(f"Sniffing thread started for this run")
-        self.network_capture = pyshark.LiveCapture(interface=wshark_interface, output_file = self.wshark_file)
+        self.network_capture = pyshark.LiveCapture(interface=wshark_interface, bpf_filter="tcp port 1883", output_file = self.wshark_file)
         for packet in self.network_capture.sniff_continuously():
             self.pyshark_logger.info(f"Packet captured: {packet}")
-            if self.stop_capturing == True:
+            if packet.mqtt.mqtt.topic == client_done:
                 return
     
     # Run handler function, used to execute each run with the information received from the server
@@ -138,7 +138,6 @@ class MQTT_Client:
                 time.sleep(time_end - time.monotonic() - 0.00008)
         # After all messages are sent, the client waits for a period of 45 seconds to make sure the server is finished processing all received messages
         self.main_logger.info(f"Sleeping for 10 seconds to allow for retransmission finishing")
-        self.stop_capturing = True
         time.sleep(10)
         # Once this sleep ends, it informs that it has finished publishing messages for this run, sending a None payload to the client done topic
         self.client.publish(client_done, None, qos=0)
@@ -159,7 +158,6 @@ class MQTT_Client:
         self.timestamp_logger.debug(f"=============================================================================")
         self.pyshark_logger.debug(f"=============================================================================")
         self.main_logger.debug(f"NEW SYSTEM EXECUTION")
-        self.stop_capturing = False
         self.main_logger.info(f"Creating MQTT Client with ID {client_id}")
         # Starts the MQTT client with specified ID, passed through the input arguments, and defines all callbacks
         self.client = mqtt.Client(client_id=client_id)
