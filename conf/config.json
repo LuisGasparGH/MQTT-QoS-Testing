@@ -19,5 +19,10 @@
         "msg_amount": [1000],
         "msg_size": [2500],
         "msg_freq": [5]
+    },
+    "pyshark":{
+        "folder": "wireshark/",
+        "extension": ".pcap",
+        "interface": "enp3s0"
     }
 }
