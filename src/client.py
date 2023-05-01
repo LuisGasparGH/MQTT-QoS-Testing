@@ -119,9 +119,8 @@ class MQTT_Client:
         for packet in self.network_capture.sniff_continuously():
             self.pyshark_logger.info(f"Packet captured: {packet}")
             # Since the sniffing has to be done once per run (every run has a different file), the sniffing thread stops when it detects an MQTT message to the client_done topic
-            if hasattr(packet, "mqtt"):
-                if packet.mqtt.mqtt.topic == client_done:
-                    return
+            if hasattr(packet, "mqtt") and "topic" in packet.mqtt.field_names and packet.mqtt.topic == client_done:
+                return
     
     # Run handler function, used to execute each run with the information received from the server
     def run_handler(self):
