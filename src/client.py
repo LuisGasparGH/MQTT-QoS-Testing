@@ -136,7 +136,7 @@ class MQTT_Client:
             # Messages are published with the correct QoS, and the thread sleeps for the necessary time to meet the frequency
             self.client.publish(main_topic, payload, qos=self.msg_qos)
             # Sleeps the thread for the remainder time of the current period in execution in order to meet the precise frequency
-            if time.monotonic() < time_end:
+            if time.monotonic() + 0.00008 < time_end:
                 time.sleep(time_end - time.monotonic() - 0.00008)
         # After all messages are sent, the client waits for a period of 45 seconds to make sure the server is finished processing all received messages
         self.main_logger.info(f"Sleeping for 10 seconds to allow for retransmission finishing")

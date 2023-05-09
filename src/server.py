@@ -113,7 +113,7 @@ class MQTT_Server:
         # The config file has a parameter with the amount of system runs to be performed, which will be iterated in here
         for run in range(system_runs):
             # Prints to the console which run it is, for the user to keep track without having to look at the logs
-            print(f"Performing run {run+1}/{len(system_runs)}...")
+            print(f"Performing run {run+1}/{system_runs}...")
             # Resets all needed variables
             self.run_counter = 0
             self.run_intime = 0
