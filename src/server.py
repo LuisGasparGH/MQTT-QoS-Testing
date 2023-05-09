@@ -1,6 +1,5 @@
 # Import of all necessary packages and libraries
 import paho.mqtt.client as mqtt
-import datetime
 import time
 import json
 import logging
@@ -103,13 +102,6 @@ class MQTT_Server:
 
     # System handler function, used to feed all clients with each run information and start order. This function is run on a separate thread
     def sys_handler(self):
-        # Before it starts a system run, it prints on the console the estimated finish local time of all runs for the user
-        self.system_finish_time = datetime.datetime.now()
-        self.system_exec_time = 0
-        for run in range(system_runs):
-            self.system_exec_time += (config['system_details']['msg_amount'][run]/config['system_details']['msg_freq'][run]) + 12
-        self.system_finish_time += datetime.timedelta(seconds=self.system_exec_time)
-        print(f"Estimated system execution finish time is {self.system_finish_time.strftime('%H:%M:%S')}")
         # The config file has a parameter with the amount of system runs to be performed, which will be iterated in here
         for run in range(system_runs):
             # Prints to the console which run it is, for the user to keep track without having to look at the logs

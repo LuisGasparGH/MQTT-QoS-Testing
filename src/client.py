@@ -119,7 +119,7 @@ class MQTT_Client:
         for packet in self.network_capture.sniff_continuously():
             self.pyshark_logger.info(f"Packet captured: {packet}")
             # Since the sniffing has to be done once per run (every run has a different file), the sniffing thread stops when it detects an MQTT message to the client_done topic
-            if hasattr(packet, "mqtt") and "topic" in packet.mqtt.field_names and packet.mqtt.topic == client_done:
+            if hasattr(packet, "mqtt") and "topic" in packet.mqtt.field_names and (packet.mqtt.topic == client_done or packet.mqtt.topic == finish_client):
                 return
     
     # Run handler function, used to execute each run with the information received from the server
@@ -139,9 +139,15 @@ class MQTT_Client:
             remaining_sleep = time_end - time.monotonic() - 0.00009
             if remaining_sleep > 0:
                 time.sleep(remaining_sleep)
-        # After all messages are sent, the client waits for a period of 45 seconds to make sure the server is finished processing all received messages
+        # After all messages are sent, the client waits for a certain period, depending on QoS level, to make sure the server is finished processing all received messages
         self.main_logger.info(f"Sleeping for 10 seconds to allow for retransmission finishing")
-        time.sleep(10)
+        match self.msg_qos:
+            case 0:
+                time.sleep(10)
+            case 1:
+                time.sleep(30)
+            case 2:
+                time.sleep(90)
         # Once this sleep ends, it informs that it has finished publishing messages for this run, sending a None payload to the client done topic
         self.client.publish(client_done, None, qos=0)
         self.main_logger.info(f"Informed server that client is finished")
