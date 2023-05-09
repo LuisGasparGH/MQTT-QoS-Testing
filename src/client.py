@@ -140,14 +140,16 @@ class MQTT_Client:
             if remaining_sleep > 0:
                 time.sleep(remaining_sleep)
         # After all messages are sent, the client waits for a certain period, depending on QoS level, to make sure the server is finished processing all received messages
-        self.main_logger.info(f"Sleeping for 10 seconds to allow for retransmission finishing")
         match self.msg_qos:
             case 0:
                 time.sleep(10)
+                self.main_logger.info(f"Sleeping for 10 seconds to allow for retransmission finishing")
             case 1:
                 time.sleep(30)
+                self.main_logger.info(f"Sleeping for 30 seconds to allow for retransmission finishing")
             case 2:
                 time.sleep(90)
+                self.main_logger.info(f"Sleeping for 90 seconds to allow for retransmission finishing")
         # Once this sleep ends, it informs that it has finished publishing messages for this run, sending a None payload to the client done topic
         self.client.publish(client_done, None, qos=0)
         self.main_logger.info(f"Informed server that client is finished")
