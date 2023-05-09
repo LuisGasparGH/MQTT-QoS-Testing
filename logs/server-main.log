@@ -1,0 +1,32 @@
+2023-05-09 20:35:24,892 DEBUG: =============================================================================
+2023-05-09 20:35:24,892 DEBUG: NEW SYSTEM EXECUTION
+2023-05-09 20:35:24,892 INFO: Creating MQTT Client with ID server
+2023-05-09 20:35:51,371 DEBUG: =============================================================================
+2023-05-09 20:35:51,371 DEBUG: NEW SYSTEM EXECUTION
+2023-05-09 20:35:51,371 INFO: Creating MQTT Client with ID server
+2023-05-09 20:36:26,658 DEBUG: =============================================================================
+2023-05-09 20:36:26,659 DEBUG: NEW SYSTEM EXECUTION
+2023-05-09 20:36:26,659 INFO: Creating MQTT Client with ID server
+2023-05-09 20:36:26,660 INFO: Connected to the broker at localhost
+2023-05-09 20:36:46,819 DEBUG: =============================================================================
+2023-05-09 20:36:46,820 DEBUG: NEW SYSTEM EXECUTION
+2023-05-09 20:36:46,820 INFO: Creating MQTT Client with ID server
+2023-05-09 20:36:46,820 INFO: Connected to the broker at localhost
+2023-05-09 20:37:04,373 DEBUG: =============================================================================
+2023-05-09 20:37:04,373 DEBUG: NEW SYSTEM EXECUTION
+2023-05-09 20:37:04,373 INFO: Creating MQTT Client with ID server
+2023-05-09 20:37:04,373 INFO: Connected to the broker at localhost
+2023-05-09 20:37:16,081 DEBUG: =============================================================================
+2023-05-09 20:37:16,081 DEBUG: NEW SYSTEM EXECUTION
+2023-05-09 20:37:16,081 INFO: Creating MQTT Client with ID server
+2023-05-09 20:37:16,082 INFO: Connected to the broker at localhost
+2023-05-09 20:37:16,082 DEBUG: STARTING NEW RUN
+2023-05-09 20:37:16,082 INFO: Subscribed to mqtt_qos/main_topic topic with QoS level 0
+2023-05-09 20:37:16,082 INFO: Client amount: 1 clients
+2023-05-09 20:37:16,082 INFO: Message amount per client: 1000 messages
+2023-05-09 20:37:16,083 INFO: Total message amount: 1000 messages
+2023-05-09 20:37:16,083 INFO: Message size: 2500 bytes
+2023-05-09 20:37:16,083 INFO: Publishing frequency: 5 Hz
+2023-05-09 20:37:16,083 INFO: QoS level: 0
+2023-05-09 20:37:16,083 INFO: Theorical execution time (for 999 messages): 199.8 seconds
+2023-05-09 20:37:16,083 INFO: Sent configuration and start order to all the clients for run #1
