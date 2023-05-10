@@ -1,0 +1,28 @@
+{
+    "logging":{
+        "folder": "logs/",
+        "main": "main-logger",
+        "timestamp": "timestamp-logger",
+        "pyshark": "pyshark-logger"
+    },  
+    "broker_address": "laptop-broker",
+    "topics":{
+        "main_topic": "mqtt_qos/main_topic",
+        "begin_client": "mqtt_qos/begin_client",
+        "finish_client": "mqtt_qos/finish_client",
+        "client_done": "mqtt_qos/client_done"
+    },
+    "system_details":{
+        "different_runs": 27,
+        "client_amount": [1,1,1,1],
+        "msg_qos": [0,0,0,0],
+        "msg_amount": [1000,1000,1000,1000],
+        "msg_size": [2500,2500,2500,2500],
+        "msg_freq": [5,30,50,100]
+    },
+    "pyshark":{
+        "folder": "wireshark/",
+        "extension": ".pcap",
+        "interface": "eth0"
+    }
+}

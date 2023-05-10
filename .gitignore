@@ -1,2 +1,2 @@
-conf/*
+conf/config_dev.json
 logs/*
