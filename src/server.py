@@ -5,6 +5,7 @@ import json
 import logging
 import sys
 import threading
+import os
 
 # Read the configuration file, which includes topics and system run details
 with open("conf/config.json", "r") as config_file:
@@ -21,6 +22,7 @@ begin_client = config['topics']['begin_client']
 finish_client = config['topics']['finish_client']
 client_done = config['topics']['client_done']
 system_runs = config['system_details']['different_runs']
+message_details = config['system_details']['message_details']
 
 # Class of the server code
 class MQTT_Server:
@@ -47,8 +49,11 @@ class MQTT_Server:
     # Callback for when the client object successfully connects to the broker
     def on_connect(self, client, userdata, flags, rc):
         if rc==0:
-            # Upon successful connection, the system handler thread is started
+            # Upon successful connection, the server subscribes to the client done topic
+            # After that, the system handler thread is started
             self.main_logger.info(f"Connected to the broker at {broker_address}")
+            self.client.subscribe(client_done, qos=0)
+            self.main_logger.info(f"Subscrubed to {client_done} topic with QoS 0")
             self.handler_thread.start()
         else:
             # In case of error during connection the log will contain the error code for debugging
@@ -102,6 +107,16 @@ class MQTT_Server:
 
     # System handler function, used to feed all clients with each run information and start order. This function is run on a separate thread
     def sys_handler(self):
+        # Before the server starts ordering the runs, it will double check the config file to make sure all lists (if existing) have the correct size
+        self.wrong_config = False
+        for detail in message_details:
+            if type(message_details[detail]) == list and len(message_details[detail]) != system_runs:
+                self.wrong_config = True
+                self.main_logger.warning(f"Problem in config file, {detail} has incorrect number of entries ({len(message_details[detail])}/{system_runs})")
+        # In case any issue is found with the config file, performs cleanup and exits
+        if self.wrong_config:
+            self.cleanup()
+            return
         # The config file has a parameter with the amount of system runs to be performed, which will be iterated in here
         for run in range(system_runs):
             # Prints to the console which run it is, for the user to keep track without having to look at the logs
@@ -112,16 +127,31 @@ class MQTT_Server:
             self.run_late = 0
             self.run_clients_done = 0
             # Gathers all the information for the next run to be performed, such as client amount, QoS to be used, message amount, size and publishing frequency
-            self.run_client_amount = config['system_details']['client_amount'][run]
-            self.run_msg_qos = config['system_details']['msg_qos'][run]
-            self.run_msg_amount = config['system_details']['msg_amount'][run]
-            self.run_msg_size = config['system_details']['msg_size'][run]
-            self.run_msg_freq = config['system_details']['msg_freq'][run]
+            # This information can be both a list (if it varies over the runs) or an int (if it's the same across all runs)
+            if type(message_details['client_amount']) == list:
+                self.run_client_amount = message_details['client_amount'][run]
+            else:
+                self.run_client_amount = message_details['client_amount']
+            if type(message_details['msg_qos']) == list:
+                self.run_msg_qos = message_details['msg_qos'][run]
+            else:
+                self.run_msg_qos = message_details['msg_qos']
+            if type(message_details['msg_amount']) == list:
+                self.run_msg_amount = message_details['msg_amount'][run]
+            else:
+                self.run_msg_amount = message_details['msg_amount']
+            if type(message_details['msg_size']) == list:
+                self.run_msg_size = message_details['msg_size'][run]
+            else:
+                self.run_msg_size = message_details['msg_size']
+            if type(message_details['msg_freq']) == list:
+                self.run_msg_freq = message_details['msg_freq'][run]
+            else:
+                self.run_msg_freq = message_details['msg_freq']
             self.run_total_msg_amount = self.run_msg_amount * self.run_client_amount
             self.run_theorical_time = (self.run_msg_amount-1) / self.run_msg_freq
-            # Subscribes to the message topic with the correct QoS to be used in the run, and logs all the information of the run, and also subscribes to the client done topic
+            # Subscribes to the message topic with the correct QoS to be used in the run, and logs all the information of the run
             self.client.subscribe(main_topic, qos=self.run_msg_qos)
-            self.client.subscribe(client_done, qos=0)
             self.main_logger.debug(f"STARTING NEW RUN")
             self.main_logger.info(f"Subscribed to {main_topic} topic with QoS level {self.run_msg_qos}")
             self.main_logger.info(f"Client amount: {self.run_client_amount} clients")
@@ -132,7 +162,7 @@ class MQTT_Server:
             self.main_logger.info(f"QoS level: {self.run_msg_qos}")
             self.main_logger.info(f"Theorical execution time (for {self.run_msg_amount-1} messages): {self.run_theorical_time} seconds")
             # Dumps the information to a JSON payload to send to all the clients, and publishes it to the client topic
-            client_config = json.dumps({"msg_qos": self.run_msg_qos, "msg_amount": self.run_msg_amount, "msg_size": self.run_msg_size, "msg_freq": self.run_msg_freq})
+            client_config = json.dumps({"client_amount": self.run_client_amount, "msg_qos": self.run_msg_qos, "msg_amount": self.run_msg_amount, "msg_size": self.run_msg_size, "msg_freq": self.run_msg_freq})
             self.client.publish(begin_client, client_config, qos=0)
             self.main_logger.info(f"Sent configuration and start order to all the clients for run #{run+1}")
             self.run_finished = False
@@ -151,6 +181,8 @@ class MQTT_Server:
 
     # Starts the class with all the variables necessary
     def __init__(self):
+        # Creates the logs folder in case it doesn't exist
+        os.makedirs(log_folder, exist_ok=True)
         self.logger_setup()
         self.main_logger.debug(f"=============================================================================")
         self.timestamp_logger.debug(f"=============================================================================")

@@ -5,7 +5,7 @@
         "timestamp": "timestamp-logger",
         "pyshark": "pyshark-logger"
     },  
-    "broker_address": "laptop-broker",
+    "broker_address": "localhost",
     "topics":{
         "main_topic": "mqtt_qos/main_topic",
         "begin_client": "mqtt_qos/begin_client",
@@ -13,14 +13,16 @@
         "client_done": "mqtt_qos/client_done"
     },
     "system_details":{
-        "different_runs": 27,
-        "client_amount": [5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5],
-        "msg_qos": [0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2],
-        "msg_amount": [1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000],
-        "msg_size": [2500,2500,2500,25000,25000,25000,250000,250000,250000,2500,2500,2500,25000,25000,25000,250000,250000,250000,2500,2500,2500,25000,25000,25000,250000,250000,250000],
-        "msg_freq": [5,30,50,5,30,50,5,30,50,5,30,50,5,30,50,5,30,50,5,30,50,5,30,50,5,30,50],
-        "rtx_times": [15,45,120]
+        "different_runs": 2,
+        "message_details":{
+            "client_amount": [1,2],
+            "msg_qos": 0,
+            "msg_amount": 10,
+            "msg_size": 250,
+            "msg_freq": 50
+        }
     },
+    "rtx_times": [15,45,120],
     "pyshark":{
         "folder": "wireshark/",
         "extension": ".pcap",
