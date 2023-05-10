@@ -25,6 +25,7 @@ client_done = config['topics']['client_done']
 wshark_folder = config['pyshark']['folder']
 wshark_ext = config['pyshark']['extension']
 wshark_interface = config['pyshark']['interface']
+rtx_times = config['system_details']['rtx_times']
 
 # Class of the client code
 class MQTT_Client:
@@ -126,6 +127,7 @@ class MQTT_Client:
     # Run handler function, used to execute each run with the information received from the server
     def run_handler(self):
         # As per the requirements, the client sleeps for 2 seconds after it receives the order to start, and after that creates the payload with the specific size for the run
+        self.rtx_sleep = rtx_times[self.msg_qos]
         time.sleep(2)
         payload = bytearray(self.msg_size)
         self.main_logger.info(f"Starting publish of {self.msg_amount} messages with QoS level {self.msg_qos}")
@@ -137,20 +139,12 @@ class MQTT_Client:
             # Messages are published with the correct QoS, and the thread sleeps for the necessary time to meet the frequency
             self.client.publish(main_topic, payload, qos=self.msg_qos)
             # Sleeps the thread for the remainder time of the current period in execution in order to meet the precise frequency
-            remaining_sleep = time_end - time.monotonic() - 0.00009
+            remaining_sleep = time_end - time.monotonic() - 0.00008
             if remaining_sleep > 0:
                 time.sleep(remaining_sleep)
         # After all messages are sent, the client waits for a certain period, depending on QoS level, to make sure the server is finished processing all received messages
-        match self.msg_qos:
-            case 0:
-                time.sleep(10)
-                self.main_logger.info(f"Sleeping for 10 seconds to allow for retransmission finishing")
-            case 1:
-                time.sleep(30)
-                self.main_logger.info(f"Sleeping for 30 seconds to allow for retransmission finishing")
-            case 2:
-                time.sleep(90)
-                self.main_logger.info(f"Sleeping for 90 seconds to allow for retransmission finishing")
+        time.sleep(self.rtx_sleep)
+        self.main_logger.info(f"Sleeping for {self.rtx_sleep} seconds to allow for retransmission finishing for QoS {self.msg_qos}")
         # Once this sleep ends, it informs that it has finished publishing messages for this run, sending a None payload to the client done topic
         self.client.publish(client_done, None, qos=0)
         self.main_logger.info(f"Informed server that client is finished")
