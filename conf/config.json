@@ -26,6 +26,6 @@
     "pyshark":{
         "folder": "wireshark/",
         "extension": ".pcap",
-        "interface": "lo"
+        "interface": "eth0"
     }
 }
