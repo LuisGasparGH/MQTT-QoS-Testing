@@ -136,7 +136,7 @@ class MQTT_Client:
         self.client.unsubscribe(finish_client)
         self.client.message_callback_remove(begin_client)
         self.client.message_callback_remove(finish_client)
-        self.client.disconnect()         
+        self.client.disconnect()
 
     # Sniffing function, responsible for running PyShark and capturing all network traffic for further analysis in Wireshark
     def sniffing_handler(self):
@@ -151,10 +151,12 @@ class MQTT_Client:
             # Since the sniffing has to be done once per run (every run has a different file), the sniffing thread stops when it detects an MQTT message to the client_done topic
             if hasattr(packet, "mqtt") and "topic" in packet.mqtt.field_names and (packet.mqtt.topic == client_done or packet.mqtt.topic == finish_client):
                 self.main_logger.info(f"Detected MQTT message to {packet.mqtt.topic} topic, closing packet capture")
+                pyshark_capture.close()
+                pyshark_capture._output_file = None
                 pyshark_capture = None
-                self.pyshark_logger.debug("=========================CAPTURE KILLED=========================")
-                return
-    
+                self.pyshark_logger.debug("=========================CAPTURE CLOSED=========================")
+                break
+
     # Run handler function, used to execute each run with the information received from the server
     def run_handler(self):
         # As per the requirements, the client sleeps for 2 seconds after it receives the order to start, and after that creates the payload with the specific size for the run
@@ -179,7 +181,7 @@ class MQTT_Client:
         # Once this sleep ends, it informs that it has finished publishing messages for this run, sending a None payload to the client done topic
         self.client.publish(client_done, None, qos=0)
         self.main_logger.info(f"Informed server that client is finished")
-    
+
     # Starts the class with all the variables necessary
     def __init__(self):
         # Creates the logs and wireshark folders in case they doesn't exist
