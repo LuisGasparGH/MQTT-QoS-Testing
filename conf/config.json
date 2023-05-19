@@ -27,6 +27,6 @@
         "folder": "wireshark/",
         "filter": "tcp port 1883",
         "extension": ".pcap",
-        "interface": "lo"
+        "interface": "eth0"
     }
 }
