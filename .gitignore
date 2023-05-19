@@ -1,2 +1,3 @@
 conf/config_dev.json
 logs/*
+wireshark/*
