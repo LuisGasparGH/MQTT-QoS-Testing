@@ -151,7 +151,7 @@ class MQTT_Client:
         self.main_logger.info(f"Setting up PyShark live capture on interface {wshark_interface} with filter {wshark_filter}, to file {self.wshark_file}")
         self.pyshark_capture = pyshark.LiveCapture(interface=wshark_interface, bpf_filter=wshark_filter, output_file=self.wshark_file)
         # Starts a loop to capture the packets with a predefined timeout, and applies a simple callback function in each packet
-        self.pyshark_capture.apply_on_packets(self.packet_apply, timeout=((self.msg_amount/self.msg_freq)+self.rtx_sleep+5))
+        self.pyshark_capture.apply_on_packets(self.packet_apply, timeout=((self.msg_amount/self.msg_freq)+self.rtx_sleep))
 
     # Run handler function, used to execute each run with the information received from the server
     def run_handler(self):
