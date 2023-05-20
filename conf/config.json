@@ -13,13 +13,13 @@
         "client_done": "mqtt_qos/client_done"
     },
     "system_details":{
-        "different_runs": 2,
+        "different_runs": 10,
         "message_details":{
-            "client_amount": [1,2],
-            "msg_qos": 0,
+            "client_amount": [1,2,3,4,5,1,2,3,4,5],
+            "msg_qos": [1,1,1,1,1,2,2,2,2,2],
             "msg_amount": 5,
             "msg_size": 250,
-            "msg_freq": 100
+            "msg_freq": 1
         }
     },
     "rtx_times": [15,45,120],

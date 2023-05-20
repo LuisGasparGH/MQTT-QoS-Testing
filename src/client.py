@@ -158,7 +158,7 @@ class MQTT_Client:
             # recording to the file when it detects an MQTT message to the client done or finish client topics
             if hasattr(packet, "mqtt") and "topic" in packet.mqtt.field_names and (packet.mqtt.topic == client_done or packet.mqtt.topic == finish_client):
                 self.pyshark_capture._output_file = None
-                break
+                return
 
     # Run handler function, used to execute each run with the information received from the server
     def run_handler(self):
