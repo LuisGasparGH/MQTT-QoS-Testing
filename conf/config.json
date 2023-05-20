@@ -5,7 +5,7 @@
         "timestamp": "timestamp-logger",
         "pyshark": "pyshark-logger"
     },  
-    "broker_address": "laptop-broker",
+    "broker_address": "localhost",
     "topics":{
         "main_topic": "mqtt_qos/main_topic",
         "begin_client": "mqtt_qos/begin_client",
@@ -27,6 +27,6 @@
         "folder": "wireshark/",
         "filter": "tcp port 1883",
         "extension": ".pcap",
-        "interface": "eth0"
+        "interface": "lo"
     }
 }

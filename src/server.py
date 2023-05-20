@@ -7,11 +7,11 @@ import sys
 import threading
 import os
 
-# Read the configuration file, which includes topics and system run details
+# Read the configuration file, which includes information about MQTT topics, various file paths, etc
 with open("conf/config.json", "r") as config_file:
     config = json.load(config_file)
 
-# Stores all static variables needed
+# Stores all static variables needed from the read configuration file, as well as the client-id from the input arguments
 client_id = str(sys.argv[1])
 log_folder = config['logging']['folder']
 main_logger = config['logging']['main']
@@ -24,16 +24,16 @@ client_done = config['topics']['client_done']
 system_runs = config['system_details']['different_runs']
 message_details = config['system_details']['message_details']
 
-# Class of the server code
+# Class of the MQTT server code
 class MQTT_Server:
-    # Configures the loggers which will contain all execution details for further analysis
+    # Configures all loggers which will contain every execution detail for further analysis
     def logger_setup(self):
-        # Gathers current time in string format to append to the logger file name
+        # Gathers current time in string format to append to the logger file name, to allow distinction between different runs
         append_time = time.strftime('%T', time.localtime())
         # Sets up the formatter and handlers needed for the loggers
-        # There are a total of two distinct loggers
         formatter = logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s')
-        # main_logger - used for normal execution and results reporting
+        # There are a total of two distinct loggers
+        # main_logger - used for normal execution and information and results reporting
         main_log = log_folder + client_id + "-main-" + str(append_time) + ".log"
         main_handler = logging.FileHandler(main_log, mode = 'a')
         main_handler.setFormatter(formatter)
@@ -47,7 +47,7 @@ class MQTT_Server:
         self.timestamp_logger = logging.getLogger(timestamp_logger)
         self.timestamp_logger.setLevel(logging.DEBUG)
         self.timestamp_logger.addHandler(timestamp_handler)
-        # Console output
+        # Console output of the main logger for the user to keep track of the execution status without having to open the logs
         stdout_handler = logging.StreamHandler(sys.stdout)
         stdout_handler.setFormatter(formatter)
         self.main_logger.addHandler(stdout_handler)
@@ -185,7 +185,6 @@ class MQTT_Server:
     def cleanup(self):
         self.main_logger.info(f"Performing cleanup of MQTT connection, exiting and informing clients")
         self.client.publish(finish_client, None, qos=0)
-        time.sleep(2)
         self.client.unsubscribe(main_topic)
         self.client.unsubscribe(client_done)
         self.client.message_callback_remove(main_topic)
