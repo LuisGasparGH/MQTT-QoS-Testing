@@ -134,7 +134,6 @@ class MQTT_Client:
     def on_finishclient(self, client, userdata, msg):
         self.main_logger.info(f"End order received from the server using topic {str(msg.topic)}")
         self.main_logger.info(f"Cleaning up MQTT connection and exiting")
-        self.pyshark_capture.close()
         self.client.unsubscribe(begin_client)
         self.client.unsubscribe(finish_client)
         self.client.message_callback_remove(begin_client)
