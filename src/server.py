@@ -208,7 +208,7 @@ class MQTT_Server:
         self.client.message_callback_add(main_topic, self.on_maintopic)
         self.client.message_callback_add(client_done, self.on_clientdone)
         # The MQTT client connects to the broker and the network loop iterates forever until the cleanup function
-        self.client.connect(broker_address, 1883, 60)
+        self.client.connect(broker_address, 1883, 0)
         self.client.loop_forever()
 
 # Starts one MQTT Server class object
