@@ -177,7 +177,7 @@ class MQTT_Server:
                 self.run_finished = False
                 # This is used to wait for the previous run to finish and clean things up before starting a new one
                 while self.run_finished == False:
-                    time.sleep(1)
+                    pass
             # Once all runs are finished, cleans up everything and exits thread
             self.cleanup()
     
