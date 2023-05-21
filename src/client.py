@@ -7,6 +7,7 @@ import sys
 import threading
 import pyshark
 import os
+import asyncio
 
 # Read the configuration file, which includes information about MQTT topics, various file paths, etc
 with open("conf/config.json", "r") as config_file:
@@ -154,8 +155,8 @@ class MQTT_Client:
         # Starts a loop to capture the packets with a predefined timeout, and applies a simple callback function in each packet
         try:
             self.pyshark_capture.apply_on_packets(self.packet_apply, timeout=((self.msg_amount/self.msg_freq)+self.rtx_sleep-10))
-        except TimeoutError:
-            self.main_logger.info(f"PyShark live capture timeout reached for this run")
+        except asyncio.exceptions.TimeoutError:
+            self.main_logger.info(f"PyShark live capture timeout reached for this run, ignoring packet")
 
     # Run handler function, used to execute each run with the information received from the server
     def run_handler(self):
@@ -177,7 +178,11 @@ class MQTT_Client:
         # After all messages are sent, the client waits for a certain period, depending on QoS level, to make sure the server is finished processing all received messages
         self.main_logger.info(f"Sleeping for {self.rtx_sleep} seconds to allow for retransmission finishing for QoS {self.msg_qos}")
         time.sleep(self.rtx_sleep)
-        # Once this sleep ends, it informs that it has finished publishing messages for this run, sending a None payload to the client done topic
+        # Once this sleep ends, it informs that it has finished publishing messages for this run, sending a None payload to the client done topic, and closes the PyShark capture
+        try:
+            self.pyshark_capture.close()
+        except RuntimeError:
+            self.main_logger.info(f"PyShark live capture has been closed")
         self.client.publish(client_done, None, qos=0)
         self.main_logger.info(f"Informed server that client is finished")
 
