@@ -1,30 +1,29 @@
 {
     "logging":{
-        "folder": "logs/",
+        "folder": "logs/client-#/",
         "main": "main-logger",
-        "timestamp": "timestamp-logger",
-        "pyshark": "pyshark-logger"
+        "timestamp": "timestamp-logger"
     },  
     "broker_address": "laptop-broker",
     "topics":{
-        "main_topic": "mqtt_qos/main_topic",
+        "main_topic": "mqtt_qos/main_topic/#",
         "begin_client": "mqtt_qos/begin_client",
         "finish_client": "mqtt_qos/finish_client",
         "client_done": "mqtt_qos/client_done"
     },
     "system_details":{
-        "different_runs": 3,
+        "different_runs": 5,
         "message_details":{
-            "client_amount": 2,
-            "msg_qos": [0,1,2],
-            "msg_amount": 5,
-            "msg_size": 250,
-            "msg_freq": 1
+            "client_amount": 1,
+            "msg_qos": 0,
+            "msg_amount": 100,
+            "msg_size": 2500,
+            "msg_freq": 50
         }
     },
     "rtx_times": [25,55,130],
     "pyshark":{
-        "folder": "wireshark/",
+        "folder": "wireshark/client-#/",
         "filter": "tcp port 1883",
         "extension": ".pcap",
         "interface": "eth0"
