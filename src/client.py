@@ -163,7 +163,7 @@ class MQTT_Client:
         deadline = datetime.datetime.now()
         for msg in range(self.msg_amount):
             # Measures time of iteration start with a current datetime object in order to precisely meet the frequency requirements
-            deadline += datetime.timedelta(seconds=(self.sleep_time-0.000080))
+            deadline += datetime.timedelta(seconds=(self.sleep_time))
             # Messages are published with the correct QoS, and the thread sleeps for the necessary time to meet the frequency
             self.client.publish(main_topic, payload, qos=self.msg_qos)
             # Pauses the thread for the remainder time of the current period in execution in order to meet the precise frequency
