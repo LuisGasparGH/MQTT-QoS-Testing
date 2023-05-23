@@ -59,6 +59,7 @@ class MQTT_Client:
         stdout_handler = logging.StreamHandler(sys.stdout)
         stdout_handler.setFormatter(formatter)
         self.main_logger.addHandler(stdout_handler)
+        self.timestamp_logger.addHandler(stdout_handler)
 
     # Callback for when the client object successfully connects to the broker
     def on_connect(self, client, userdata, flags, rc):
@@ -130,6 +131,7 @@ class MQTT_Client:
     # Callback for when the client receives a message on the topic finish client
     # Performs the cleanup, to unsubscribe from the topics needed and gracefully close the connection to the broker, and also stops the PyShark capture
     def on_finishclient(self, client, userdata, msg):
+        self.main_logger.debug(f"==================================================")
         self.main_logger.info(f"End order received from the server using topic {str(msg.topic)}")
         self.main_logger.info(f"Cleaning up MQTT connection and exiting")
         self.client.unsubscribe(begin_client)

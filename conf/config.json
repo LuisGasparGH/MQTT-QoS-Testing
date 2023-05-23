@@ -12,7 +12,7 @@
         "client_done": "mqtt_qos/client_done"
     },
     "system_details":{
-        "different_runs": 5,
+        "different_runs": 10,
         "message_details":{
             "client_amount": 1,
             "msg_qos": 0,

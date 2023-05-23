@@ -53,6 +53,7 @@ class MQTT_Server:
         stdout_handler = logging.StreamHandler(sys.stdout)
         stdout_handler.setFormatter(formatter)
         self.main_logger.addHandler(stdout_handler)
+        self.timestamp_logger.addHandler(stdout_handler)
 
     # Callback for when the client object successfully connects to the broker
     def on_connect(self, client, userdata, flags, rc):
@@ -289,6 +290,7 @@ class MQTT_Server:
     
     # Cleanup function, to inform all clients all runs are finished and gracefully closes the connection with the broker
     def cleanup(self):
+        self.main_logger.debug(f"==================================================")
         self.main_logger.info(f"Performing cleanup of MQTT connection, exiting and informing clients")
         self.client.publish(finish_client, None, qos=0)
         self.client.unsubscribe(main_topic)
