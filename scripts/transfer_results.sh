@@ -1,2 +1,2 @@
 #! /bin/bash
-sudo scp -r wireshark/ logs/ lgaspar@laptop-broker:/home/lgaspar/MQTTResults
+sudo scp -r wireshark/ logs/ lgaspar@laptop-broker:/home/lgaspar/Desktop/MQTTResults
