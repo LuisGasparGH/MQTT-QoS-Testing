@@ -4,7 +4,7 @@
         "main": "main-logger",
         "timestamp": "timestamp-logger"
     },  
-    "broker_address": "localhost",
+    "broker_address": "laptop-broker",
     "topics":{
         "main_topic": "mqtt_qos/main_topic/#",
         "begin_client": "mqtt_qos/begin_client",
