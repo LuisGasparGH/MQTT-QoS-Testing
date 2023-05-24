@@ -81,11 +81,14 @@ class MQTT_Client:
     # Callback for the when the client object successfully completes the publishing of a message (including necessary handshake for QoS levels 1 and 2)
     def on_publish(self, client, userdata, mid):
         # The client contains a counter of sent messages for logging purposes
+        if self.sent_counter == 0:
+            self.publish_begin = datetime.datetime.now()
         self.sent_counter += 1
         self.timestamp_logger.info(f"Published message #{self.sent_counter} to the {main_topic} topic")
         # When all messages are sent to the broker, that information is written on the logs
         if self.sent_counter == self.msg_amount:
             self.main_logger.info(f"Publish of all {self.msg_amount} messages complete")
+            self.publish_end = datetime.datetime.now()
 
     # Callback for when the client receives a message on the topic begin client
     def on_beginclient(self, client, userdata, msg):
@@ -162,12 +165,12 @@ class MQTT_Client:
         # As per the requirements, the client sleeps for 5 seconds after it receives the order to start, and after that creates the payload with the specific size for the run
         time.sleep(5)
         payload = bytearray(self.msg_size)
+        self.publish_begin = None
+        self.publish_end = None
         self.main_logger.info(f"Starting publish of {self.msg_amount} messages with QoS level {self.msg_qos}")
         # This cycle is iterated as many times as messages that need to be published in this run
         deadline = datetime.datetime.now()
         for msg in range(self.msg_amount):
-            if msg == 1:
-                send_start = datetime.datetime.now()
             # Measures time of iteration start with a current datetime object in order to precisely meet the frequency requirements
             deadline += datetime.timedelta(seconds=(self.sleep_time))
             # Messages are published with the correct QoS, and the thread sleeps for the necessary time to meet the frequency
@@ -175,10 +178,9 @@ class MQTT_Client:
             # Pauses the thread for the remainder time of the current period in execution in order to meet the precise frequency
             pause.until(deadline)
         # After all messages are sent, the client waits for a certain period, depending on QoS level, to make sure the server is finished processing all received messages
-        send_end = datetime.datetime.now()
-        self.main_logger.info(f"Transmission started around: {send_start.strftime('%H:%M:%S.%f')[:-3]}")
-        self.main_logger.info(f"Transmission ended around: {send_end.strftime('%H:%M:%S.%f')[:-3]}")
-        self.main_logger.info(f"Total transmission time (from client side): {round((send_end-send_start).total_seconds(),3)} seconds")
+        self.main_logger.info(f"Publishing started: {self.publish_begin.strftime('%H:%M:%S.%f')[:-3]}")
+        self.main_logger.info(f"Publishing ended: {self.publish_end.strftime('%H:%M:%S.%f')[:-3]}")
+        self.main_logger.info(f"Total transmission time (for {self.msg_amount-1} messages): {round((self.publish_end-self.publish_begin).total_seconds(),3)} seconds")
         self.main_logger.info(f"Sleeping for {self.rtx_sleep} seconds to allow for retransmission finishing for QoS {self.msg_qos}")
         time.sleep(self.rtx_sleep)
         # Once this sleep ends, it informs that it has finished publishing messages for this run, sending a None payload to the client done topic, and closes the PyShark capture
