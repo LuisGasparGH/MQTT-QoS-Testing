@@ -53,7 +53,7 @@ class MQTT_Server:
         stdout_handler = logging.StreamHandler(sys.stdout)
         stdout_handler.setFormatter(formatter)
         self.main_logger.addHandler(stdout_handler)
-        self.timestamp_logger.addHandler(stdout_handler)
+        # self.timestamp_logger.addHandler(stdout_handler)
 
     # Callback for when the client object successfully connects to the broker
     def on_connect(self, client, userdata, flags, rc):
@@ -77,6 +77,7 @@ class MQTT_Server:
     # Callback for when the server receives a message on the main topic, on any of the 10 clients
     # Its a callback per client instead of calculating the client on the received message, to try and minimize overhead during the transmission period
     def on_maintopic_c0(self, client, userdata, msg):
+        start = time.perf_counter_ns()
         if self.run_client_intime[0] == 0:
             self.run_client_start[0] = datetime.datetime.utcnow()
             self.run_client_expected_finish[0] = self.run_client_start[0] + datetime.timedelta(seconds=self.run_expected_time)
@@ -86,6 +87,8 @@ class MQTT_Server:
         else:
             self.run_client_late[0] += 1
         self.timestamp_logger.info(f"Received message #{(self.run_client_intime[0]+self.run_client_late[0])} from the {msg.topic} topic")
+        end = time.perf_counter_ns()
+        print(f"Time taken on callback: {round((end-start)/1000000,3)}")
     
     def on_maintopic_c1(self, client, userdata, msg):
         if self.run_client_intime[1] == 0:
@@ -236,6 +239,8 @@ class MQTT_Server:
                 # Prints to the console which run it is, for the user to keep track without having to look at the logs
                 self.main_logger.debug(f"==================================================")
                 self.main_logger.debug(f"PERFORMING RUN {run+1}/{system_runs}...")
+                self.timestamp_logger.debug(f"==================================================")
+                self.timestamp_logger.debug(f"PERFORMING RUN {run+1}/{system_runs}...")
                 # Gathers all the information for the next run to be performed, such as client amount, QoS to be used, message amount, size and publishing frequency
                 # This information can be both a list (if it varies over the runs) or an int (if it's the same across all runs)
                 if type(message_details['client_amount']) == list:

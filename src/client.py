@@ -82,7 +82,7 @@ class MQTT_Client:
     def on_publish(self, client, userdata, mid):
         # The client contains a counter of sent messages for logging purposes
         self.sent_counter += 1
-        self.timestamp_logger.info(f"Published message #{self.sent_counter} to the {main_topic} topic (message id: {mid})")
+        self.timestamp_logger.info(f"Published message #{self.sent_counter} to the {main_topic} topic")
         # When all messages are sent to the broker, that information is written on the logs
         if self.sent_counter == self.msg_amount:
             self.main_logger.info(f"Publish of all {self.msg_amount} messages complete")
@@ -102,6 +102,8 @@ class MQTT_Client:
         elif client_id < client_check:
             self.main_logger.debug(f"==================================================")
             self.main_logger.debug(f"STARTING NEW RUN")
+            self.timestamp_logger.debug(f"==================================================")
+            self.timestamp_logger.debug(f"STARTING NEW RUN")
             # This client is going to be used for this run, proceeding as normal
             # Declares the thread where the run handler will run. Has to be done everytime a new run is executed
             self.run_thread = None
@@ -120,12 +122,12 @@ class MQTT_Client:
             # Declares the thread where PyShark will be sniffing the network traffic and capturing it to an appropriate file
             self.sniffing_thread = None
             self.sniffing_thread = threading.Thread(target = self.sniffing_handler, args = ())
-            self.sniffing_thread.start()
             # Logs the run details and starts the run handler thread
             self.main_logger.info(f"Message amount: {self.msg_amount} messages")
             self.main_logger.info(f"Message size: {self.msg_size} bytes")
             self.main_logger.info(f"QoS level: {self.msg_qos}")
             self.main_logger.info(f"Publish frequency: {self.msg_freq} Hz")
+            self.sniffing_thread.start()
             self.run_thread.start()
 
     # Callback for when the client receives a message on the topic finish client
@@ -164,6 +166,8 @@ class MQTT_Client:
         # This cycle is iterated as many times as messages that need to be published in this run
         deadline = datetime.datetime.now()
         for msg in range(self.msg_amount):
+            if msg == 1:
+                send_start = datetime.datetime.now()
             # Measures time of iteration start with a current datetime object in order to precisely meet the frequency requirements
             deadline += datetime.timedelta(seconds=(self.sleep_time))
             # Messages are published with the correct QoS, and the thread sleeps for the necessary time to meet the frequency
@@ -171,6 +175,10 @@ class MQTT_Client:
             # Pauses the thread for the remainder time of the current period in execution in order to meet the precise frequency
             pause.until(deadline)
         # After all messages are sent, the client waits for a certain period, depending on QoS level, to make sure the server is finished processing all received messages
+        send_end = datetime.datetime.now()
+        self.main_logger.info(f"Transmission started around: {send_start}")
+        self.main_logger.info(f"Transmission ended around: {send_end}")
+        self.main_logger.info(f"Total transmission time (from client side): {round((send_end-send_start).total_seconds(),3)} seconds")
         self.main_logger.info(f"Sleeping for {self.rtx_sleep} seconds to allow for retransmission finishing for QoS {self.msg_qos}")
         time.sleep(self.rtx_sleep)
         # Once this sleep ends, it informs that it has finished publishing messages for this run, sending a None payload to the client done topic, and closes the PyShark capture
