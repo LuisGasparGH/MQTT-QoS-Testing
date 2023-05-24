@@ -176,8 +176,8 @@ class MQTT_Client:
             pause.until(deadline)
         # After all messages are sent, the client waits for a certain period, depending on QoS level, to make sure the server is finished processing all received messages
         send_end = datetime.datetime.now()
-        self.main_logger.info(f"Transmission started around: {send_start}")
-        self.main_logger.info(f"Transmission ended around: {send_end}")
+        self.main_logger.info(f"Transmission started around: {send_start.strftime('%H:%M:%S.%f')[:-3]}")
+        self.main_logger.info(f"Transmission ended around: {send_end.strftime('%H:%M:%S.%f')[:-3]}")
         self.main_logger.info(f"Total transmission time (from client side): {round((send_end-send_start).total_seconds(),3)} seconds")
         self.main_logger.info(f"Sleeping for {self.rtx_sleep} seconds to allow for retransmission finishing for QoS {self.msg_qos}")
         time.sleep(self.rtx_sleep)

@@ -78,11 +78,11 @@ class MQTT_Server:
     # Its a callback per client instead of calculating the client on the received message, to try and minimize overhead during the transmission period
     def on_maintopic_c0(self, client, userdata, msg):
         start = time.monotonic()
-        self.run_client_intime[0] += 1
-        # if self.run_client_intime[0] == 0:
-        #     self.run_client_start[0] = datetime.datetime.utcnow()
-        #     self.run_client_expected_finish[0] = self.run_client_start[0] + datetime.timedelta(seconds=self.run_expected_time)
-        # self.run_client_finish[0] = datetime.datetime.utcnow()
+        if self.run_client_received[0] == 0:
+            self.run_client_start[0] = datetime.datetime.utcnow()
+            # self.run_client_expected_finish[0] = self.run_client_start[0] + datetime.timedelta(seconds=self.run_expected_time)
+        self.run_client_finish[0] = datetime.datetime.utcnow()
+        self.run_client_received[0] += 1
         # if self.run_client_finish[0] < self.run_client_expected_finish[0]:
         #     self.run_client_intime[0] += 1
         # else:
@@ -201,7 +201,8 @@ class MQTT_Server:
     
     # Function to calculate and output every relevant metric and result to the logger once a run is complete
     def result_logging(self):
-        run_msg_counter = sum(self.run_client_intime)+sum(self.run_client_late)
+        # run_msg_counter = sum(self.run_client_intime)+sum(self.run_client_late)
+        run_msg_counter = sum(self.run_client_received)
         run_packet_loss = 100-((run_msg_counter/self.run_total_msg_amount)*100)
         run_exec_time = max(self.run_client_finish)-min(self.run_client_start)
         run_actual_freq = 1/(run_exec_time.total_seconds()/(self.run_msg_amount-1))
@@ -211,11 +212,11 @@ class MQTT_Server:
         self.main_logger.debug(f"==================================================")
         self.main_logger.debug(f"RUN RESULTS")
         self.main_logger.info(f"Received {run_msg_counter} out of {self.run_total_msg_amount} messages")
-        self.main_logger.info(f"Messages received inside time window: {sum(self.run_client_intime)}")
-        self.main_logger.info(f"Messages received outside time window: {sum(self.run_client_late)}")
+        # self.main_logger.info(f"Messages received inside time window: {sum(self.run_client_intime)}")
+        # self.main_logger.info(f"Messages received outside time window: {sum(self.run_client_late)}")
         self.main_logger.info(f"Calculated packet loss: {round(run_packet_loss,2)}%")
         self.main_logger.info(f"Run start time (of first received message): {min(self.run_client_start).strftime('%H:%M:%S.%f')[:-3]}")
-        self.main_logger.info(f"Run expected finish time: {min(self.run_client_expected_finish).strftime('%H:%M:%S.%f')[:-3]}")
+        # self.main_logger.info(f"Run expected finish time: {min(self.run_client_expected_finish).strftime('%H:%M:%S.%f')[:-3]}")
         self.main_logger.info(f"Run actual finish time: {max(self.run_client_finish).strftime('%H:%M:%S.%f')[:-3]}")
         self.main_logger.info(f"Expected execution time (for {self.run_msg_amount-1} messages): {round(self.run_expected_time,3)} seconds")
         self.main_logger.info(f"Total execution time (for {self.run_msg_amount-1} messages): {round(run_exec_time.total_seconds(),3)} seconds")
@@ -267,6 +268,7 @@ class MQTT_Server:
                 self.run_total_msg_amount = self.run_msg_amount * self.run_client_amount
                 self.run_expected_time = (self.run_msg_amount-1) / self.run_msg_freq
                 # Resets all needed variables
+                self.run_client_received = [0] * self.run_client_amount
                 self.run_client_intime = [0] * self.run_client_amount
                 self.run_client_late = [0] * self.run_client_amount
                 self.run_client_done = 0
