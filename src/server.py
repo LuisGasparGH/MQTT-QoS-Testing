@@ -78,15 +78,16 @@ class MQTT_Server:
     # Its a callback per client instead of calculating the client on the received message, to try and minimize overhead during the transmission period
     def on_maintopic_c0(self, client, userdata, msg):
         start = time.monotonic()
-        if self.run_client_intime[0] == 0:
-            self.run_client_start[0] = datetime.datetime.utcnow()
-            self.run_client_expected_finish[0] = self.run_client_start[0] + datetime.timedelta(seconds=self.run_expected_time)
-        self.run_client_finish[0] = datetime.datetime.utcnow()
-        if self.run_client_finish[0] < self.run_client_expected_finish[0]:
-            self.run_client_intime[0] += 1
-        else:
-            self.run_client_late[0] += 1
-        # self.timestamp_logger.info(f"Received message #{(self.run_client_intime[0]+self.run_client_late[0])} from the {msg.topic} topic")
+        self.run_client_intime[0] += 1
+        # if self.run_client_intime[0] == 0:
+        #     self.run_client_start[0] = datetime.datetime.utcnow()
+        #     self.run_client_expected_finish[0] = self.run_client_start[0] + datetime.timedelta(seconds=self.run_expected_time)
+        # self.run_client_finish[0] = datetime.datetime.utcnow()
+        # if self.run_client_finish[0] < self.run_client_expected_finish[0]:
+        #     self.run_client_intime[0] += 1
+        # else:
+        #     self.run_client_late[0] += 1
+        self.timestamp_logger.info(f"Received message #{(self.run_client_intime[0]+self.run_client_late[0])} from the {msg.topic} topic")
         end = time.monotonic()
         print(f"Time taken on callback: {round((end-start)*1000,3)} ms")
     
