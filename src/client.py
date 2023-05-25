@@ -180,7 +180,7 @@ class MQTT_Client:
         # After all messages are sent, the client waits for a certain period, depending on QoS level, to make sure the server is finished processing all received messages
         self.main_logger.info(f"Publishing started: {self.publish_begin.strftime('%H:%M:%S.%f')[:-3]}")
         self.main_logger.info(f"Publishing ended: {self.publish_end.strftime('%H:%M:%S.%f')[:-3]}")
-        self.main_logger.info(f"Total transmission time (for {self.msg_amount-1} messages): {round((self.publish_end-self.publish_begin).total_seconds(),3)} seconds")
+        self.main_logger.info(f"Total publish time (for {self.msg_amount-1} messages): {round((self.publish_end-self.publish_begin).total_seconds(),3)} seconds")
         self.main_logger.info(f"Sleeping for {self.rtx_sleep} seconds to allow for retransmission finishing for QoS {self.msg_qos}")
         time.sleep(self.rtx_sleep)
         # Once this sleep ends, it informs that it has finished publishing messages for this run, sending a None payload to the client done topic, and closes the PyShark capture

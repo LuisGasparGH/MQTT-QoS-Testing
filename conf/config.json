@@ -4,7 +4,7 @@
         "main": "main-logger",
         "timestamp": "timestamp-logger"
     },  
-    "broker_address": "localhost",
+    "broker_address": "broker",
     "topics":{
         "main_topic": "mqtt_qos/main_topic/#",
         "begin_client": "mqtt_qos/begin_client",
@@ -12,13 +12,15 @@
         "client_done": "mqtt_qos/client_done"
     },
     "system_details":{
-        "different_runs": 1,
+        "different_runs": 30,
         "message_details":{
             "client_amount": 1,
             "msg_qos": 0,
             "msg_amount": 1000,
-            "msg_size": 2500,
-            "msg_freq": 50
+            "msg_size": [2500,2500,2500,2500,2500,2500,2500,2500,2500,2500,
+                        25000,25000,25000,25000,25000,25000,25000,25000,25000,25000,
+                        250000,250000,250000,250000,250000,250000,250000,250000,250000,250000],
+            "msg_freq": 5
         }
     },
     "rtx_times": [25,55,130],

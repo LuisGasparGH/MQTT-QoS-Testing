@@ -53,7 +53,7 @@ class MQTT_Server:
         stdout_handler = logging.StreamHandler(sys.stdout)
         stdout_handler.setFormatter(formatter)
         self.main_logger.addHandler(stdout_handler)
-        # self.timestamp_logger.addHandler(stdout_handler)
+        self.timestamp_logger.addHandler(stdout_handler)
 
     # Callback for when the client object successfully connects to the broker
     def on_connect(self, client, userdata, flags, rc):
@@ -77,7 +77,6 @@ class MQTT_Server:
     # Callback for when the server receives a message on the main topic, on any of the 10 clients
     # Its a callback per client instead of calculating the client on the received message, to try and minimize overhead during the transmission period
     def on_maintopic_c0(self, client, userdata, msg):
-        start = time.monotonic()
         if self.run_client_intime[0] == 0:
             self.run_client_start[0] = datetime.datetime.utcnow()
             self.run_client_expected_finish[0] = self.run_client_start[0] + datetime.timedelta(seconds=self.run_expected_time)
@@ -87,8 +86,6 @@ class MQTT_Server:
         else:
             self.run_client_late[0] += 1
         self.timestamp_logger.info(f"Received message #{(self.run_client_intime[0]+self.run_client_late[0])} from the {msg.topic} topic")
-        end = time.monotonic()
-        print(f"Time taken on callback: {round((end-start)*1000,3)} ms")
     
     def on_maintopic_c1(self, client, userdata, msg):
         if self.run_client_intime[1] == 0:
