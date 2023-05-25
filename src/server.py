@@ -63,7 +63,7 @@ class MQTT_Server:
             self.main_logger.info(f"Connected to the broker at {broker_address}")
             self.client.subscribe(client_done, qos=0)
             self.main_logger.info(f"Subscribed to {client_done} topic with QoS 0")
-            self.handler_thread.start()
+            self.sys_thread.start()
         else:
             # In case of error during connection the log will contain the error code for debugging
             self.main_logger.info(f"Error connecting to broker, with code {rc}")
@@ -77,6 +77,8 @@ class MQTT_Server:
     # Callback for when the server receives a message on the main topic, on any of the 10 clients
     # Its a callback per client instead of calculating the client on the received message, to try and minimize overhead during the transmission period
     def on_maintopic_c0(self, client, userdata, msg):
+    # TODO - Modify callbacks and move processing of timestamps elsewhere in order to make the callback take as little time as possible in order to
+    # not block the MQTT network queue, and because of that slow down the processing on the server compared to the broker output
         if self.run_client_intime[0] == 0:
             self.run_client_start[0] = datetime.datetime.utcnow()
             self.run_client_expected_finish[0] = self.run_client_start[0] + datetime.timedelta(seconds=self.run_expected_time)
@@ -313,7 +315,7 @@ class MQTT_Server:
         self.main_logger.debug(f"NEW SYSTEM EXECUTION")
         self.run_finished = True
         # Declares the thread where the system handler will run
-        self.handler_thread = threading.Thread(target = self.sys_handler, args=())
+        self.sys_thread = threading.Thread(target = self.sys_handler, args=())
         self.main_logger.info(f"Creating MQTT Client with ID {client_id}")
         # Starts the MQTT client with specified ID, passed through the input arguments, and defines all callbacks
         self.client = mqtt.Client(client_id=client_id)
@@ -327,4 +329,8 @@ class MQTT_Server:
         self.client.loop_forever()
 
 # Starts one MQTT Server class object
-mqtt_server = MQTT_Server()
+# Small exception handler in case the user decides to use Ctrl-C to finish the program mid execution
+try:
+    mqtt_server = MQTT_Server()
+except KeyboardInterrupt:
+    print("Detected user interruption, shutting down...")

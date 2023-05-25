@@ -6,10 +6,9 @@ import json
 import logging
 import sys
 import threading
-import pyshark
 import os
-import asyncio
 import pause
+import subprocess
 
 # Read the configuration file, which includes information about MQTT topics, various file paths, etc
 with open("conf/config.json", "r") as config_file:
@@ -70,6 +69,7 @@ class MQTT_Client:
             self.main_logger.info(f"Subscribed to {begin_client} topic with QoS 0")
             self.client.subscribe(finish_client, qos=0)
             self.main_logger.info(f"Subscribed to {finish_client} topic with QoS 0")
+            self.pyshark_capture = None
         else:
             # In case of error during connection the log will contain the error code for debugging
             self.main_logger.info(f"Error connecting to broker, with code {rc}")
@@ -81,14 +81,13 @@ class MQTT_Client:
     # Callback for the when the client object successfully completes the publishing of a message (including necessary handshake for QoS levels 1 and 2)
     def on_publish(self, client, userdata, mid):
         # The client contains a counter of sent messages for logging purposes
-        if self.sent_counter == 0:
-            self.publish_begin = datetime.datetime.now()
         self.sent_counter += 1
         self.timestamp_logger.info(f"Published message #{self.sent_counter} to the {main_topic} topic")
-        # When all messages are sent to the broker, that information is written on the logs
+        # When all messages are sent to the broker, that information is written on the logs, as well as the final message datetime
         if self.sent_counter == self.msg_amount:
             self.main_logger.info(f"Publish of all {self.msg_amount} messages complete")
             self.publish_end = datetime.datetime.now()
+            self.pub_complete = True
 
     # Callback for when the client receives a message on the topic begin client
     def on_beginclient(self, client, userdata, msg):
@@ -147,24 +146,26 @@ class MQTT_Client:
 
     # Sniffing function, responsible for running PyShark and capturing all network traffic for further analysis in Wireshark
     def sniffing_handler(self):
+        # Starts a LiveCapture from TShark directly on the correct interface, with filters applied to only capture TCP port 1883 packets,
+        # to the specific capture file, and with a maximum duration
+        sniff_duration = (self.msg_amount/self.msg_freq)+self.rtx_sleep-10
         self.main_logger.info(f"Sniffing thread started")
-        # Starts a LiveCapture from PyShark on the correct interface, with filters applied to only capture TCP port 1883 packets, and to the specific capture file
-        self.main_logger.info(f"Setting up PyShark live capture")
+        self.main_logger.info(f"Setting up TShark subprocess capture")
         self.main_logger.info(f"Interface: {wshark_interface}")
         self.main_logger.info(f"BPF Filter: {wshark_filter}")
         self.main_logger.info(f"Capture file: {self.wshark_file}")
-        self.pyshark_capture = pyshark.LiveCapture(interface=wshark_interface, bpf_filter=wshark_filter, output_file=self.wshark_file)
-        # Starts a loop to capture the packets with a predefined timeout, and applies a simple callback function in each packet
-        try:
-            self.pyshark_capture.sniff(timeout=((self.msg_amount/self.msg_freq)+self.rtx_sleep-10))
-        except asyncio.exceptions.TimeoutError:
-            pass
+        self.main_logger.info(f"Sniffing duration: {sniff_duration} seconds")
+        tshark_call = ["tshark", "-i", wshark_interface, "-f", wshark_filter, "-a", f"duration:{sniff_duration}", "-w", self.wshark_file]
+        subprocess.Popen(tshark_call, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     # Run handler function, used to execute each run with the information received from the server
     def run_handler(self):
-        # As per the requirements, the client sleeps for 5 seconds after it receives the order to start, and after that creates the payload with the specific size for the run
+        self.main_logger.info(f"Run thread started")
+        # As per the requirements, the client sleeps for 5 seconds to allow for initial setups (packet sniffing) after it receives the order to start,
+        # and after that creates the payload withthe specific size for the run
         time.sleep(5)
         payload = bytearray(self.msg_size)
+        self.pub_complete = False
         self.publish_begin = None
         self.publish_end = None
         self.main_logger.info(f"Starting publish of {self.msg_amount} messages with QoS level {self.msg_qos}")
@@ -173,17 +174,23 @@ class MQTT_Client:
         for msg in range(self.msg_amount):
             # Measures time of iteration start with a current datetime object in order to precisely meet the frequency requirements
             deadline += datetime.timedelta(seconds=(self.sleep_time))
+            # Measures datetime of first message published in here in order to not block the MQTT network loop
+            if self.sent_counter == 1:
+                self.publish_begin = datetime.datetime.now()
             # Messages are published with the correct QoS, and the thread sleeps for the necessary time to meet the frequency
             self.client.publish(main_topic, payload, qos=self.msg_qos)
             # Pauses the thread for the remainder time of the current period in execution in order to meet the precise frequency
             pause.until(deadline)
-        # After all messages are sent, the client waits for a certain period, depending on QoS level, to make sure the server is finished processing all received messages
+        # After all messages are sent, the client logs publishing time taken data, from the client side
+        # After that, it waits for a certain period, depending on QoS level, to make sure the server is finished processing all received messages
+        while self.pub_complete != True:
+            pass
         self.main_logger.info(f"Publishing started: {self.publish_begin.strftime('%H:%M:%S.%f')[:-3]}")
         self.main_logger.info(f"Publishing ended: {self.publish_end.strftime('%H:%M:%S.%f')[:-3]}")
         self.main_logger.info(f"Total publish time (for {self.msg_amount-1} messages): {round((self.publish_end-self.publish_begin).total_seconds(),3)} seconds")
         self.main_logger.info(f"Sleeping for {self.rtx_sleep} seconds to allow for retransmission finishing for QoS {self.msg_qos}")
         time.sleep(self.rtx_sleep)
-        # Once this sleep ends, it informs that it has finished publishing messages for this run, sending a None payload to the client done topic, and closes the PyShark capture
+        # Once this sleep ends, it informs that it has finished publishing messages for this run, sending a None payload to the client done topic
         self.client.publish(client_done, None, qos=0)
         self.main_logger.info(f"Informed server that client is finished")
 
@@ -208,4 +215,8 @@ class MQTT_Client:
         self.client.loop_forever()
 
 # Starts one MQTT Client class object
-mqtt_client = MQTT_Client()
+# Small exception handler in case the user decides to use Ctrl-C to finish the program mid execution
+try:
+    mqtt_client = MQTT_Client()
+except KeyboardInterrupt:
+    print("Detected user interruption, shutting down...")
