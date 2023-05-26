@@ -9,6 +9,7 @@ import threading
 import os
 import pause
 import subprocess
+import signal
 
 # Read the configuration file, which includes information about MQTT topics, various file paths, etc
 with open("conf/config.json", "r") as config_file:
@@ -163,7 +164,7 @@ class MQTT_Client:
         self.main_logger.info(f"Capture file: {wshark_file}")
         self.main_logger.info(f"Sniffing duration: {round(sniff_duration,2)} seconds")
         tshark_call = ["tshark", "-i", wshark_interface, "-f", wshark_filter, "-a", f"duration:{sniff_duration}", "-w", wshark_file]
-        subprocess.Popen(tshark_call, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        self.tshark_subprocess = subprocess.Popen(tshark_call, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     # Run handler function, used to execute each run with the information received from the server
     def run_handler(self):
@@ -197,6 +198,7 @@ class MQTT_Client:
         self.main_logger.info(f"Actual frequency (from the client): {pub_freq} Hz")
         self.main_logger.info(f"Sleeping for {self.rtx_sleep} seconds to allow for retransmission finishing for QoS {self.msg_qos}")
         time.sleep(self.rtx_sleep)
+        os.kill(self.tshark_subprocess.pid, signal.SIGTERM)
         # Once this sleep ends, it informs that it has finished publishing messages for this run, sending a None payload to the client done topic
         self.client.publish(client_done, None, qos=0)
         self.main_logger.info(f"Informed server that client is finished")
