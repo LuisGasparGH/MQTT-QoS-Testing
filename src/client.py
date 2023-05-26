@@ -24,10 +24,10 @@ main_topic = str(config['topics']['main_topic']).replace("#", client_id)
 begin_client = config['topics']['begin_client']
 finish_client = config['topics']['finish_client']
 client_done = config['topics']['client_done']
-wshark_folder = str(config['pyshark']['folder']).replace("client-#", client_id)
-wshark_filter = config['pyshark']['filter']
-wshark_ext = config['pyshark']['extension']
-wshark_interface = config['pyshark']['interface']
+wshark_folder = str(config['tshark']['folder']).replace("client-#", client_id)
+wshark_filter = config['tshark']['filter']
+wshark_ext = config['tshark']['extension']
+wshark_interface = config['tshark']['interface']
 rtx_times = config['rtx_times']
 
 # Class of the MQTT client code
@@ -64,15 +64,15 @@ class MQTT_Client:
     def on_connect(self, client, userdata, flags, rc):
         if rc==0:
             # Upon successful connection, the client subscribes to the begin and finish topics, used to receive orders from the server
+            self.mqtt_connected = True
             self.main_logger.info(f"Connected to the broker at {broker_address}")
             self.client.subscribe(begin_client, qos=0)
             self.main_logger.info(f"Subscribed to {begin_client} topic with QoS 0")
             self.client.subscribe(finish_client, qos=0)
             self.main_logger.info(f"Subscribed to {finish_client} topic with QoS 0")
-            self.pyshark_capture = None
         else:
             # In case of error during connection the log will contain the error code for debugging
-            self.main_logger.info(f"Error connecting to broker, with code {rc}")
+            self.main_logger.warning(f"Error connecting to broker, with code {rc}")
 
     # Callback for when the client object successfully disconnects from the broker
     def on_disconnect(self, client, userdata, rc):
@@ -91,7 +91,7 @@ class MQTT_Client:
 
     # Callback for when the client receives a message on the topic begin client
     def on_beginclient(self, client, userdata, msg):
-        self.main_logger.debug(f"==================================================")
+        self.main_logger.info(f"==================================================")
         self.main_logger.info(f"Start order received from the server using topic {str(msg.topic)}")
         # Parses the payload to a dictionary
         client_config = json.loads(msg.payload)
@@ -119,11 +119,11 @@ class MQTT_Client:
             self.sent_counter = 0
             self.rtx_sleep = rtx_times[self.msg_qos]
             # Creates appropriate Wireshark capture file name for packet capture and analysis, and starts the sniffing thread
-            self.wshark_file = wshark_folder + client_id + "-Q" + str(self.msg_qos) + "-A" + str(self.msg_amount) + "-S" + str(int(self.msg_size)) + \
+            wshark_file = wshark_folder + client_id + "-Q" + str(self.msg_qos) + "-A" + str(self.msg_amount) + "-S" + str(int(self.msg_size)) + \
                 "-F" + str(self.msg_freq) +"-T" + str(datetime.datetime.utcnow().strftime('%H-%M-%S')) + str(wshark_ext)
             # Declares the thread where PyShark will be sniffing the network traffic and capturing it to an appropriate file
             self.sniffing_thread = None
-            self.sniffing_thread = threading.Thread(target = self.sniffing_handler, args = ())
+            self.sniffing_thread = threading.Thread(target = self.sniffing_handler, args = (wshark_file,))
             # Logs the run details and starts the run handler thread
             self.main_logger.info(f"Message amount: {self.msg_amount} messages")
             self.main_logger.info(f"Message size: {self.msg_size} bytes")
@@ -137,15 +137,19 @@ class MQTT_Client:
     def on_finishclient(self, client, userdata, msg):
         self.main_logger.debug(f"==================================================")
         self.main_logger.info(f"End order received from the server using topic {str(msg.topic)}")
+        self.cleanup()
+
+    def cleanup(self):
         self.main_logger.info(f"Cleaning up MQTT connection and exiting")
-        self.client.unsubscribe(begin_client)
-        self.client.unsubscribe(finish_client)
         self.client.message_callback_remove(begin_client)
         self.client.message_callback_remove(finish_client)
-        self.client.disconnect()
+        if self.mqtt_connected:
+            self.client.unsubscribe(begin_client)
+            self.client.unsubscribe(finish_client)
+            self.client.disconnect()
 
     # Sniffing function, responsible for running PyShark and capturing all network traffic for further analysis in Wireshark
-    def sniffing_handler(self):
+    def sniffing_handler(self, wshark_file):
         # Starts a LiveCapture from TShark directly on the correct interface, with filters applied to only capture TCP port 1883 packets,
         # to the specific capture file, and with a maximum duration
         sniff_duration = (self.msg_amount/self.msg_freq)+self.rtx_sleep-10
@@ -153,9 +157,9 @@ class MQTT_Client:
         self.main_logger.info(f"Setting up TShark subprocess capture")
         self.main_logger.info(f"Interface: {wshark_interface}")
         self.main_logger.info(f"BPF Filter: {wshark_filter}")
-        self.main_logger.info(f"Capture file: {self.wshark_file}")
-        self.main_logger.info(f"Sniffing duration: {sniff_duration} seconds")
-        tshark_call = ["tshark", "-i", wshark_interface, "-f", wshark_filter, "-a", f"duration:{sniff_duration}", "-w", self.wshark_file]
+        self.main_logger.info(f"Capture file: {wshark_file}")
+        self.main_logger.info(f"Sniffing duration: {round(sniff_duration,2)} seconds")
+        tshark_call = ["tshark", "-i", wshark_interface, "-f", wshark_filter, "-a", f"duration:{sniff_duration}", "-w", wshark_file]
         subprocess.Popen(tshark_call, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     # Run handler function, used to execute each run with the information received from the server
@@ -185,9 +189,12 @@ class MQTT_Client:
         # After that, it waits for a certain period, depending on QoS level, to make sure the server is finished processing all received messages
         while self.pub_complete != True:
             pass
+        pub_time = self.publish_end-self.publish_begin
+        pub_freq = round((self.sent_counter-1)/pub_time.total_seconds(),2)
         self.main_logger.info(f"Publishing started: {self.publish_begin.strftime('%H:%M:%S.%f')[:-3]}")
         self.main_logger.info(f"Publishing ended: {self.publish_end.strftime('%H:%M:%S.%f')[:-3]}")
-        self.main_logger.info(f"Total publish time (for {self.msg_amount-1} messages): {round((self.publish_end-self.publish_begin).total_seconds(),3)} seconds")
+        self.main_logger.info(f"Total publish time (for {self.msg_amount-1} messages): {round(pub_time.total_seconds(),3)} seconds")
+        self.main_logger.info(f"Actual frequency (from the client): {pub_freq} Hz")
         self.main_logger.info(f"Sleeping for {self.rtx_sleep} seconds to allow for retransmission finishing for QoS {self.msg_qos}")
         time.sleep(self.rtx_sleep)
         # Once this sleep ends, it informs that it has finished publishing messages for this run, sending a None payload to the client done topic
@@ -204,6 +211,7 @@ class MQTT_Client:
         self.main_logger.debug(f"NEW SYSTEM EXECUTION")
         self.main_logger.info(f"Creating MQTT Client with ID {client_id}")
         # Starts the MQTT client with specified ID, passed through the input arguments, and defines all callbacks
+        self.mqtt_connected = False
         self.client = mqtt.Client(client_id=client_id)
         self.client.on_connect = self.on_connect
         self.client.on_disconnect = self.on_disconnect

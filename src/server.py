@@ -60,6 +60,7 @@ class MQTT_Server:
         if rc==0:
             # Upon successful connection, the server subscribes to the client done topic
             # After that, the system handler thread is started
+            self.mqtt_connected = True
             self.main_logger.info(f"Connected to the broker at {broker_address}")
             self.client.subscribe(client_done, qos=0)
             self.main_logger.info(f"Subscribed to {client_done} topic with QoS 0")
@@ -77,116 +78,54 @@ class MQTT_Server:
     # Callback for when the server receives a message on the main topic, on any of the 10 clients
     # Its a callback per client instead of calculating the client on the received message, to try and minimize overhead during the transmission period
     def on_maintopic_c0(self, client, userdata, msg):
-    # TODO - Modify callbacks and move processing of timestamps elsewhere in order to make the callback take as little time as possible in order to
-    # not block the MQTT network queue, and because of that slow down the processing on the server compared to the broker output
-        if self.run_client_intime[0] == 0:
-            self.run_client_start[0] = datetime.datetime.utcnow()
-            self.run_client_expected_finish[0] = self.run_client_start[0] + datetime.timedelta(seconds=self.run_expected_time)
-        self.run_client_finish[0] = datetime.datetime.utcnow()
-        if self.run_client_finish[0] < self.run_client_expected_finish[0]:
-            self.run_client_intime[0] += 1
-        else:
-            self.run_client_late[0] += 1
-        self.timestamp_logger.info(f"Received message #{(self.run_client_intime[0]+self.run_client_late[0])} from the {msg.topic} topic")
+        self.run_client_received[0] += 1
+        self.run_client_timestamps[0].append(datetime.datetime.utcnow())
+        self.timestamp_logger.info(f"Received message #{self.run_client_received[0]} from the {msg.topic} topic")
     
     def on_maintopic_c1(self, client, userdata, msg):
-        if self.run_client_intime[1] == 0:
-            self.run_client_start[1] = datetime.datetime.utcnow()
-            self.run_client_expected_finish[1] = self.run_client_start[1] + datetime.timedelta(seconds=self.run_expected_time)
-        self.run_client_finish[1] = datetime.datetime.utcnow()
-        if self.run_client_finish[1] < self.run_client_expected_finish[1]:
-            self.run_client_intime[1] += 1
-        else:
-            self.run_client_late[1] += 1
-        self.timestamp_logger.info(f"Received message #{(self.run_client_intime[1]+self.run_client_late[1])} from the {msg.topic} topic")
+        self.run_client_received[1] += 1
+        self.run_client_timestamps[1].append(datetime.datetime.utcnow())
+        self.timestamp_logger.info(f"Received message #{self.run_client_received[1]} from the {msg.topic} topic")
     
     def on_maintopic_c2(self, client, userdata, msg):
-        if self.run_client_intime[2] == 0:
-            self.run_client_start[2] = datetime.datetime.utcnow()
-            self.run_client_expected_finish[2] = self.run_client_start[2] + datetime.timedelta(seconds=self.run_expected_time)
-        self.run_client_finish[2] = datetime.datetime.utcnow()
-        if self.run_client_finish[2] < self.run_client_expected_finish[2]:
-            self.run_client_intime[2] += 1
-        else:
-            self.run_client_late[2] += 1
-        self.timestamp_logger.info(f"Received message #{(self.run_client_intime[2]+self.run_client_late[2])} from the {msg.topic} topic")
+        self.run_client_received[2] += 1
+        self.run_client_timestamps[2].append(datetime.datetime.utcnow())
+        self.timestamp_logger.info(f"Received message #{self.run_client_received[2]} from the {msg.topic} topic")
     
     def on_maintopic_c3(self, client, userdata, msg):
-        if self.run_client_intime[3] == 0:
-            self.run_client_start[3] = datetime.datetime.utcnow()
-            self.run_client_expected_finish[3] = self.run_client_start[3] + datetime.timedelta(seconds=self.run_expected_time)
-        self.run_client_finish[3] = datetime.datetime.utcnow()
-        if self.run_client_finish[3] < self.run_client_expected_finish[3]:
-            self.run_client_intime[3] += 1
-        else:
-            self.run_client_late[3] += 1
-        self.timestamp_logger.info(f"Received message #{(self.run_client_intime[3]+self.run_client_late[3])} from the {msg.topic} topic")
+        self.run_client_received[3] += 1
+        self.run_client_timestamps[3].append(datetime.datetime.utcnow())
+        self.timestamp_logger.info(f"Received message #{self.run_client_received[3]} from the {msg.topic} topic")
     
     def on_maintopic_c4(self, client, userdata, msg):
-        if self.run_client_intime[4] == 0:
-            self.run_client_start[4] = datetime.datetime.utcnow()
-            self.run_client_expected_finish[4] = self.run_client_start[4] + datetime.timedelta(seconds=self.run_expected_time)
-        self.run_client_finish[4] = datetime.datetime.utcnow()
-        if self.run_client_finish[4] < self.run_client_expected_finish[4]:
-            self.run_client_intime[4] += 1
-        else:
-            self.run_client_late[4] += 1
-        self.timestamp_logger.info(f"Received message #{(self.run_client_intime[4]+self.run_client_late[4])} from the {msg.topic} topic")
+        self.run_client_received[4] += 1
+        self.run_client_timestamps[4].append(datetime.datetime.utcnow())
+        self.timestamp_logger.info(f"Received message #{self.run_client_received[4]} from the {msg.topic} topic")
     
     def on_maintopic_c5(self, client, userdata, msg):
-        if self.run_client_intime[5] == 0:
-            self.run_client_start[5] = datetime.datetime.utcnow()
-            self.run_client_expected_finish[5] = self.run_client_start[5] + datetime.timedelta(seconds=self.run_expected_time)
-        self.run_client_finish[5] = datetime.datetime.utcnow()
-        if self.run_client_finish[5] < self.run_client_expected_finish[5]:
-            self.run_client_intime[5] += 1
-        else:
-            self.run_client_late[5] += 1
-        self.timestamp_logger.info(f"Received message #{(self.run_client_intime[5]+self.run_client_late[5])} from the {msg.topic} topic")
+        self.run_client_received[5] += 1
+        self.run_client_timestamps[5].append(datetime.datetime.utcnow())
+        self.timestamp_logger.info(f"Received message #{self.run_client_received[5]} from the {msg.topic} topic")
     
     def on_maintopic_c6(self, client, userdata, msg):
-        if self.run_client_intime[6] == 0:
-            self.run_client_start[6] = datetime.datetime.utcnow()
-            self.run_client_expected_finish[6] = self.run_client_start[6] + datetime.timedelta(seconds=self.run_expected_time)
-        self.run_client_finish[6] = datetime.datetime.utcnow()
-        if self.run_client_finish[6] < self.run_client_expected_finish[6]:
-            self.run_client_intime[6] += 1
-        else:
-            self.run_client_late[6] += 1
-        self.timestamp_logger.info(f"Received message #{(self.run_client_intime[6]+self.run_client_late[6])} from the {msg.topic} topic")
+        self.run_client_received[6] += 1
+        self.run_client_timestamps[6].append(datetime.datetime.utcnow())
+        self.timestamp_logger.info(f"Received message #{self.run_client_received[6]} from the {msg.topic} topic")
     
     def on_maintopic_c7(self, client, userdata, msg):
-        if self.run_client_intime[7] == 0:
-            self.run_client_start[7] = datetime.datetime.utcnow()
-            self.run_client_expected_finish[7] = self.run_client_start[7] + datetime.timedelta(seconds=self.run_expected_time)
-        self.run_client_finish[7] = datetime.datetime.utcnow()
-        if self.run_client_finish[7] < self.run_client_expected_finish[7]:
-            self.run_client_intime[7] += 1
-        else:
-            self.run_client_late[7] += 1
-        self.timestamp_logger.info(f"Received message #{(self.run_client_intime[7]+self.run_client_late[7])} from the {msg.topic} topic")
+        self.run_client_received[7] += 1
+        self.run_client_timestamps[7].append(datetime.datetime.utcnow())
+        self.timestamp_logger.info(f"Received message #{self.run_client_received[7]} from the {msg.topic} topic")
     
     def on_maintopic_c8(self, client, userdata, msg):
-        if self.run_client_intime[8] == 0:
-            self.run_client_start[8] = datetime.datetime.utcnow()
-            self.run_client_expected_finish[8] = self.run_client_start[8] + datetime.timedelta(seconds=self.run_expected_time)
-        self.run_client_finish[8] = datetime.datetime.utcnow()
-        if self.run_client_finish[8] < self.run_client_expected_finish[8]:
-            self.run_client_intime[8] += 1
-        else:
-            self.run_client_late[8] += 1
-        self.timestamp_logger.info(f"Received message #{(self.run_client_intime[8]+self.run_client_late[8])} from the {msg.topic} topic")
+        self.run_client_received[8] += 1
+        self.run_client_timestamps[8].append(datetime.datetime.utcnow())
+        self.timestamp_logger.info(f"Received message #{self.run_client_received[8]} from the {msg.topic} topic")
     
     def on_maintopic_c9(self, client, userdata, msg):
-        if self.run_client_intime[9] == 0:
-            self.run_client_start[9] = datetime.datetime.utcnow()
-            self.run_client_expected_finish[9] = self.run_client_start[9] + datetime.timedelta(seconds=self.run_expected_time)
-        self.run_client_finish[9] = datetime.datetime.utcnow()
-        if self.run_client_finish[9] < self.run_client_expected_finish[9]:
-            self.run_client_intime[9] += 1
-        else:
-            self.run_client_late[9] += 1
-        self.timestamp_logger.info(f"Received message #{(self.run_client_intime[9]+self.run_client_late[9])} from the {msg.topic} topic")
+        self.run_client_received[9] += 1
+        self.run_client_timestamps[9].append(datetime.datetime.utcnow())
+        self.timestamp_logger.info(f"Received message #{self.run_client_received[9]} from the {msg.topic} topic")
     
     # Callback for when the server receives a message on the client done topic
     # If the topic is the client done topic, it means that one of the clients has finished publishing of his messages
@@ -199,28 +138,44 @@ class MQTT_Server:
     
     # Function to calculate and output every relevant metric and result to the logger once a run is complete
     def result_logging(self):
-        run_msg_counter = sum(self.run_client_intime)+sum(self.run_client_late)
-        # run_msg_counter = sum(self.run_client_received)
-        run_packet_loss = 100-((run_msg_counter/self.run_total_msg_amount)*100)
-        run_exec_time = max(self.run_client_finish)-min(self.run_client_start)
-        run_actual_freq = 1/(run_exec_time.total_seconds()/(self.run_msg_amount-1))
-        run_time_factor = (run_exec_time.total_seconds()/self.run_expected_time)
-        run_frequency_factor = (run_actual_freq/self.run_msg_freq)*100
+        run_msg_counter = sum(self.run_client_received)
+        run_packet_loss = round(100-((run_msg_counter/self.run_total_msg_amount)*100),2)
+        client_expected_finish = [[] for _ in range(self.run_client_amount)]
+        overall_start_time = None
+        overall_finish_time = None
+        for client in range(self.run_client_amount):
+            client_expected_finish[client] = min(self.run_client_timestamps[client]) + datetime.timedelta(seconds=self.run_expected_time)
+            if overall_start_time == None:
+                overall_start_time = min(self.run_client_timestamps[client])
+            else:
+                client_start_time = min(self.run_client_timestamps[client])
+                if client_start_time < overall_start_time:
+                    overall_start_time = client_start_time
+            if overall_finish_time == None:
+                overall_finish_time = max(self.run_client_timestamps[client])
+            else:
+                client_finish_time = max(self.run_client_timestamps[client])
+                if client_finish_time > overall_finish_time:
+                    overall_finish_time = client_finish_time
+        run_exec_time = (overall_finish_time-overall_start_time)
+        run_actual_freq = round((self.run_msg_amount-1)/(run_exec_time.total_seconds()),2)
+        run_time_factor = round((run_exec_time.total_seconds()/self.run_expected_time),3)
+        run_frequency_factor = round((run_actual_freq/self.run_msg_freq)*100,2)
         self.main_logger.info(f"All {self.run_client_amount} clients finished publishing for this execution")
         self.main_logger.debug(f"==================================================")
         self.main_logger.debug(f"RUN RESULTS")
         self.main_logger.info(f"Received {run_msg_counter} out of {self.run_total_msg_amount} messages")
-        self.main_logger.info(f"Messages received inside time window: {sum(self.run_client_intime)}")
-        self.main_logger.info(f"Messages received outside time window: {sum(self.run_client_late)}")
-        self.main_logger.info(f"Calculated packet loss: {round(run_packet_loss,2)}%")
-        self.main_logger.info(f"Run start time (of first received message): {min(self.run_client_start).strftime('%H:%M:%S.%f')[:-3]}")
-        self.main_logger.info(f"Run expected finish time: {min(self.run_client_expected_finish).strftime('%H:%M:%S.%f')[:-3]}")
-        self.main_logger.info(f"Run actual finish time: {max(self.run_client_finish).strftime('%H:%M:%S.%f')[:-3]}")
+        # self.main_logger.info(f"Messages received inside time window: {sum(self.run_client_intime)}")
+        # self.main_logger.info(f"Messages received outside time window: {sum(self.run_client_late)}")
+        self.main_logger.info(f"Calculated packet loss: {run_packet_loss}%")
+        self.main_logger.info(f"Run start time (of first received message): {overall_start_time.strftime('%H:%M:%S.%f')[:-3]}")
+        self.main_logger.info(f"Run expected finish time: {min(client_expected_finish).strftime('%H:%M:%S.%f')[:-3]}")
+        self.main_logger.info(f"Run actual finish time: {overall_finish_time.strftime('%H:%M:%S.%f')[:-3]}")
         self.main_logger.info(f"Expected execution time (for {self.run_msg_amount-1} messages): {round(self.run_expected_time,3)} seconds")
         self.main_logger.info(f"Total execution time (for {self.run_msg_amount-1} messages): {round(run_exec_time.total_seconds(),3)} seconds")
-        self.main_logger.info(f"Time factor: {round(run_time_factor,3)}x of the expected time")
-        self.main_logger.info(f"Actual frequency: {round(run_actual_freq,2)} Hz")
-        self.main_logger.info(f"Frequency factor: {round(run_frequency_factor,2)}%")
+        self.main_logger.info(f"Time factor: {run_time_factor}x of the expected time")
+        self.main_logger.info(f"Actual frequency: {run_actual_freq} Hz")
+        self.main_logger.info(f"Frequency factor: {run_frequency_factor}%")
 
     # System handler function, used to feed all clients with each run information and start order. This function is run on a separate thread
     def sys_handler(self):
@@ -266,13 +221,9 @@ class MQTT_Server:
                 self.run_total_msg_amount = self.run_msg_amount * self.run_client_amount
                 self.run_expected_time = (self.run_msg_amount-1) / self.run_msg_freq
                 # Resets all needed variables
-                # self.run_client_received = [0] * self.run_client_amount
-                self.run_client_intime = [0] * self.run_client_amount
-                self.run_client_late = [0] * self.run_client_amount
+                self.run_client_received = [0 for _ in range(self.run_client_amount)]
+                self.run_client_timestamps = [[] for _ in range(self.run_client_amount)]
                 self.run_client_done = 0
-                self.run_client_start = [0] * self.run_client_amount
-                self.run_client_finish = [0] * self.run_client_amount
-                self.run_client_expected_finish = [0] * self.run_client_amount
                 # Subscribes to the message topic with the correct QoS to be used in the run, and logs all the information of the run
                 self.client.subscribe(main_topic, qos=self.run_msg_qos)
                 self.main_logger.info(f"Subscribed to {main_topic} topic with QoS level {self.run_msg_qos}")
@@ -298,13 +249,14 @@ class MQTT_Server:
     def cleanup(self):
         self.main_logger.debug(f"==================================================")
         self.main_logger.info(f"Performing cleanup of MQTT connection, exiting and informing clients")
-        self.client.publish(finish_client, None, qos=0)
-        self.client.unsubscribe(main_topic)
-        self.client.unsubscribe(client_done)
         for client in range(10):
             self.client.message_callback_remove(f"{main_topic}/client-{client}")
         self.client.message_callback_remove(client_done)
-        self.client.disconnect()
+        if self.mqtt_connected:
+            self.client.publish(finish_client, None, qos=0)
+            self.client.unsubscribe(main_topic)
+            self.client.unsubscribe(client_done)
+            self.client.disconnect()
 
     # Starts the class with all the variables necessary
     def __init__(self):
@@ -318,11 +270,20 @@ class MQTT_Server:
         self.sys_thread = threading.Thread(target = self.sys_handler, args=())
         self.main_logger.info(f"Creating MQTT Client with ID {client_id}")
         # Starts the MQTT client with specified ID, passed through the input arguments, and defines all callbacks
+        self.mqtt_connected = False
         self.client = mqtt.Client(client_id=client_id)
         self.client.on_connect = self.on_connect
         self.client.on_disconnect = self.on_disconnect
-        for client in range(10):
-            self.client.message_callback_add(main_topic.replace("#", f"client-{client}"), self.on_maintopic_c0)
+        self.client.message_callback_add(main_topic.replace("#", f"client-0"), self.on_maintopic_c0)
+        self.client.message_callback_add(main_topic.replace("#", f"client-1"), self.on_maintopic_c1)
+        self.client.message_callback_add(main_topic.replace("#", f"client-2"), self.on_maintopic_c2)
+        self.client.message_callback_add(main_topic.replace("#", f"client-3"), self.on_maintopic_c3)
+        self.client.message_callback_add(main_topic.replace("#", f"client-4"), self.on_maintopic_c4)
+        self.client.message_callback_add(main_topic.replace("#", f"client-5"), self.on_maintopic_c5)
+        self.client.message_callback_add(main_topic.replace("#", f"client-6"), self.on_maintopic_c6)
+        self.client.message_callback_add(main_topic.replace("#", f"client-7"), self.on_maintopic_c7)
+        self.client.message_callback_add(main_topic.replace("#", f"client-8"), self.on_maintopic_c8)
+        self.client.message_callback_add(main_topic.replace("#", f"client-9"), self.on_maintopic_c9)
         self.client.message_callback_add(client_done, self.on_clientdone)
         # The MQTT client connects to the broker and the network loop iterates forever until the cleanup function
         self.client.connect(broker_address, 1883, 3600)
