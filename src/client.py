@@ -82,6 +82,9 @@ class MQTT_Client:
     def on_publish(self, client, userdata, mid):
         # The client contains a counter of sent messages for logging purposes
         self.sent_counter += 1
+        # Measures datetime of first message published
+        if self.sent_counter == 1:
+            self.publish_begin = datetime.datetime.now()
         self.timestamp_logger.info(f"Published message #{self.sent_counter} to the {main_topic} topic")
         # When all messages are sent to the broker, that information is written on the logs, as well as the final message datetime
         if self.sent_counter == self.msg_amount:
@@ -178,9 +181,6 @@ class MQTT_Client:
         for msg in range(self.msg_amount):
             # Measures time of iteration start with a current datetime object in order to precisely meet the frequency requirements
             deadline += datetime.timedelta(seconds=(self.sleep_time))
-            # Measures datetime of first message published in here in order to not block the MQTT network loop
-            if self.sent_counter == 1:
-                self.publish_begin = datetime.datetime.now()
             # Messages are published with the correct QoS, and the thread sleeps for the necessary time to meet the frequency
             self.client.publish(main_topic, payload, qos=self.msg_qos)
             # Pauses the thread for the remainder time of the current period in execution in order to meet the precise frequency
