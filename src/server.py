@@ -53,7 +53,7 @@ class MQTT_Server:
         stdout_handler = logging.StreamHandler(sys.stdout)
         stdout_handler.setFormatter(formatter)
         self.main_logger.addHandler(stdout_handler)
-        self.timestamp_logger.addHandler(stdout_handler)
+        # self.timestamp_logger.addHandler(stdout_handler)
 
     # Callback for when the client object successfully connects to the broker
     def on_connect(self, client, userdata, flags, rc):
@@ -162,8 +162,8 @@ class MQTT_Server:
         run_time_factor = round((run_exec_time.total_seconds()/self.run_expected_time),3)
         run_frequency_factor = round((run_actual_freq/self.run_msg_freq)*100,2)
         self.main_logger.info(f"All {self.run_client_amount} clients finished publishing for this execution")
-        self.main_logger.debug(f"==================================================")
-        self.main_logger.debug(f"RUN RESULTS")
+        self.main_logger.info(f"==================================================")
+        self.main_logger.info(f"RUN RESULTS")
         self.main_logger.info(f"Received {run_msg_counter} out of {self.run_total_msg_amount} messages")
         # self.main_logger.info(f"Messages received inside time window: {sum(self.run_client_intime)}")
         # self.main_logger.info(f"Messages received outside time window: {sum(self.run_client_late)}")
@@ -192,10 +192,10 @@ class MQTT_Server:
             # The config file has a parameter with the amount of system runs to be performed, which will be iterated in here
             for run in range(system_runs):
                 # Prints to the console which run it is, for the user to keep track without having to look at the logs
-                self.main_logger.debug(f"==================================================")
-                self.main_logger.debug(f"PERFORMING RUN {run+1}/{system_runs}...")
-                self.timestamp_logger.debug(f"==================================================")
-                self.timestamp_logger.debug(f"PERFORMING RUN {run+1}/{system_runs}...")
+                self.main_logger.info(f"==================================================")
+                self.main_logger.info(f"PERFORMING RUN {run+1}/{system_runs}...")
+                self.timestamp_logger.info(f"==================================================")
+                self.timestamp_logger.info(f"PERFORMING RUN {run+1}/{system_runs}...")
                 # Gathers all the information for the next run to be performed, such as client amount, QoS to be used, message amount, size and publishing frequency
                 # This information can be both a list (if it varies over the runs) or an int (if it's the same across all runs)
                 if type(message_details['client_amount']) == list:
@@ -240,14 +240,14 @@ class MQTT_Server:
                 self.run_finished = False
                 # This is used to wait for the previous run to finish and clean things up before starting a new one
                 while self.run_finished == False:
-                    pass
+                    time.sleep(15)
                 self.result_logging()
             # Once all runs are finished, cleans up everything and exits thread
             self.cleanup()
     
     # Cleanup function, to inform all clients all runs are finished and gracefully closes the connection with the broker
     def cleanup(self):
-        self.main_logger.debug(f"==================================================")
+        self.main_logger.info(f"==================================================")
         self.main_logger.info(f"Performing cleanup of MQTT connection, exiting and informing clients")
         for client in range(10):
             self.client.message_callback_remove(f"{main_topic}/client-{client}")
@@ -263,8 +263,8 @@ class MQTT_Server:
         # Creates the logs folder in case it doesn't exist
         os.makedirs(log_folder, exist_ok=True)
         self.logger_setup()
-        self.main_logger.debug(f"==================================================")
-        self.main_logger.debug(f"NEW SYSTEM EXECUTION")
+        self.main_logger.info(f"==================================================")
+        self.main_logger.info(f"NEW SYSTEM EXECUTION")
         self.run_finished = True
         # Declares the thread where the system handler will run
         self.sys_thread = threading.Thread(target = self.sys_handler, args=())
@@ -286,7 +286,7 @@ class MQTT_Server:
         self.client.message_callback_add(main_topic.replace("#", f"client-9"), self.on_maintopic_c9)
         self.client.message_callback_add(client_done, self.on_clientdone)
         # The MQTT client connects to the broker and the network loop iterates forever until the cleanup function
-        self.client.connect(broker_address, 1883, 3600)
+        self.client.connect(broker_address, 1883, 10800)
         self.client.loop_forever()
 
 # Starts one MQTT Server class object

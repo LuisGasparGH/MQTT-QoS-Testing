@@ -58,7 +58,7 @@ class MQTT_Client:
         stdout_handler = logging.StreamHandler(sys.stdout)
         stdout_handler.setFormatter(formatter)
         self.main_logger.addHandler(stdout_handler)
-        self.timestamp_logger.addHandler(stdout_handler)
+        # self.timestamp_logger.addHandler(stdout_handler)
 
     # Callback for when the client object successfully connects to the broker
     def on_connect(self, client, userdata, flags, rc):
@@ -102,10 +102,10 @@ class MQTT_Client:
             # This client is not going to be used for this run, skipping
             self.main_logger.info(f"{client_id} will not be used for this run, skipping and waiting for next start order")
         elif client_id < client_check:
-            self.main_logger.debug(f"==================================================")
-            self.main_logger.debug(f"STARTING NEW RUN")
-            self.timestamp_logger.debug(f"==================================================")
-            self.timestamp_logger.debug(f"STARTING NEW RUN")
+            self.main_logger.info(f"==================================================")
+            self.main_logger.info(f"STARTING NEW RUN")
+            self.timestamp_logger.info(f"==================================================")
+            self.timestamp_logger.info(f"STARTING NEW RUN")
             # This client is going to be used for this run, proceeding as normal
             # Declares the thread where the run handler will run. Has to be done everytime a new run is executed
             self.run_thread = None
@@ -135,7 +135,7 @@ class MQTT_Client:
     # Callback for when the client receives a message on the topic finish client
     # Performs the cleanup, to unsubscribe from the topics needed and gracefully close the connection to the broker, and also stops the PyShark capture
     def on_finishclient(self, client, userdata, msg):
-        self.main_logger.debug(f"==================================================")
+        self.main_logger.info(f"==================================================")
         self.main_logger.info(f"End order received from the server using topic {str(msg.topic)}")
         self.cleanup()
 
@@ -207,8 +207,8 @@ class MQTT_Client:
         os.makedirs(log_folder, exist_ok=True)
         os.makedirs(wshark_folder, exist_ok=True)
         self.logger_setup()
-        self.main_logger.debug(f"==================================================")
-        self.main_logger.debug(f"NEW SYSTEM EXECUTION")
+        self.main_logger.info(f"==================================================")
+        self.main_logger.info(f"NEW SYSTEM EXECUTION")
         self.main_logger.info(f"Creating MQTT Client with ID {client_id}")
         # Starts the MQTT client with specified ID, passed through the input arguments, and defines all callbacks
         self.mqtt_connected = False
@@ -219,7 +219,7 @@ class MQTT_Client:
         self.client.message_callback_add(begin_client, self.on_beginclient)
         self.client.message_callback_add(finish_client, self.on_finishclient)
         # The MQTT client connects to the broker and the network loop iterates forever until the cleanup function
-        self.client.connect(broker_address, 1883, 3600)
+        self.client.connect(broker_address, 1883, 10800)
         self.client.loop_forever()
 
 # Starts one MQTT Client class object
