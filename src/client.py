@@ -10,6 +10,7 @@ import os
 import pause
 import subprocess
 import signal
+import zipfile
 
 # Read the configuration file, which includes information about MQTT topics, various file paths, etc
 with open("conf/config.json", "r") as config_file:
@@ -66,6 +67,7 @@ class MQTT_Client:
         if rc==0:
             # Upon successful connection, the client subscribes to the begin and finish topics, used to receive orders from the server
             self.mqtt_connected = True
+            self.zip = None
             self.main_logger.info(f"Connected to the broker at {broker_address}")
             self.client.subscribe(begin_client, qos=0)
             self.main_logger.info(f"Subscribed to {begin_client} topic with QoS 0")
@@ -123,11 +125,13 @@ class MQTT_Client:
             self.sent_counter = 0
             self.rtx_sleep = rtx_times[self.msg_qos]
             # Creates appropriate Wireshark capture file name for packet capture and analysis, and starts the sniffing thread
-            wshark_file = wshark_folder + client_id + "-Q" + str(self.msg_qos) + "-A" + str(self.msg_amount) + "-S" + str(int(self.msg_size)) + \
-                "-F" + str(self.msg_freq) +"-T" + str(datetime.datetime.utcnow().strftime('%H-%M-%S')) + str(wshark_ext)
+            self.basename = wshark_folder + client_id + "-Q" + str(self.msg_qos) + "-A" + str(self.msg_amount) + \
+                "-S" + str(int(self.msg_size)) + "-F" + str(self.msg_freq)
+            self.zip_file =  self.basename + ".zip"
+            self.wshark_file = self.basename + "-T" + str(datetime.datetime.utcnow().strftime('%H-%M-%S')) + wshark_ext
             # Declares the thread where PyShark will be sniffing the network traffic and capturing it to an appropriate file
             self.sniffing_thread = None
-            self.sniffing_thread = threading.Thread(target = self.sniffing_handler, args = (wshark_file,))
+            self.sniffing_thread = threading.Thread(target = self.sniffing_handler, args = ())
             # Logs the run details and starts the run handler thread
             self.main_logger.info(f"Message amount: {self.msg_amount} messages")
             self.main_logger.info(f"Message size: {self.msg_size} bytes")
@@ -153,17 +157,18 @@ class MQTT_Client:
             self.client.disconnect()
 
     # Sniffing function, responsible for running PyShark and capturing all network traffic for further analysis in Wireshark
-    def sniffing_handler(self, wshark_file):
-        # Starts a LiveCapture from TShark directly on the correct interface, with filters applied to only capture TCP port 1883 packets,
-        # to the specific capture file, and with a maximum duration
+    def sniffing_handler(self):
+        # Starts an interface capture from TShark directly on the correct interface, with filters applied to only capture TCP port 1883 packets
+        # To avoid files too big, a ring buffer is created, which will split the capture into files up to 500MB
         sniff_duration = (self.msg_amount/self.msg_freq)+self.rtx_sleep-10
         self.main_logger.info(f"Sniffing thread started")
         self.main_logger.info(f"Setting up TShark subprocess capture")
         self.main_logger.info(f"Interface: {wshark_interface}")
         self.main_logger.info(f"BPF Filter: {wshark_filter}")
-        self.main_logger.info(f"Capture file: {wshark_file}")
+        self.main_logger.info(f"Capture file: {os.path.basename(self.wshark_file)}")
         self.main_logger.info(f"Sniffing duration: {round(sniff_duration,2)} seconds")
-        tshark_call = ["tshark", "-i", wshark_interface, "-f", wshark_filter, "-a", f"duration:{sniff_duration}", "-w", wshark_file]
+        tshark_call = ["tshark", "-i", wshark_interface, "-f", wshark_filter,
+                       "-a", f"duration:{sniff_duration}", "-w", self.wshark_file]
         self.tshark_subprocess = subprocess.Popen(tshark_call, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     # Run handler function, used to execute each run with the information received from the server
@@ -199,6 +204,17 @@ class MQTT_Client:
         self.main_logger.info(f"Sleeping for {self.rtx_sleep} seconds to allow for retransmission finishing for QoS {self.msg_qos}")
         time.sleep(self.rtx_sleep)
         os.kill(self.tshark_subprocess.pid, signal.SIGTERM)
+        # Due to caching performed by TShark, memory usage can grow very quickly, specially when testing with the 250KB MQTT payloads
+        # This would cause the connection from the client to the broker to randomly disconnect and reconnect, voiding the tests
+        # To avoid this, as soon as a run is complete, the capture files are zipped, and the original ones are deleted, to free up the memory
+        self.main_logger.info(f"Zipping TShark capture files into {os.path.basename(self.zip_file)} to free up memory")
+        self.zip = zipfile.ZipFile(self.zip_file, "a", zipfile.ZIP_DEFLATED)
+        for capture_file in os.listdir(wshark_folder):
+            if capture_file.endswith(wshark_ext):
+                self.main_logger.info(f"Zipping and deleting {capture_file}")
+                self.zip.write(wshark_folder+capture_file, capture_file)
+                os.remove(wshark_folder+capture_file)
+        self.zip.close()
         # Once this sleep ends, it informs that it has finished publishing messages for this run, sending a None payload to the client done topic
         self.client.publish(client_done, None, qos=0)
         self.main_logger.info(f"Informed server that client is finished")
@@ -221,7 +237,7 @@ class MQTT_Client:
         self.client.message_callback_add(begin_client, self.on_beginclient)
         self.client.message_callback_add(finish_client, self.on_finishclient)
         # The MQTT client connects to the broker and the network loop iterates forever until the cleanup function
-        self.client.connect(broker_address, 1883, 60)
+        self.client.connect(broker_address, 1883, 10800)
         self.client.loop_forever()
 
 # Starts one MQTT Client class object
