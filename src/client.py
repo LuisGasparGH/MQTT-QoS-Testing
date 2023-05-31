@@ -136,7 +136,7 @@ class MQTT_Client:
             self.msg_amount = client_config['msg_amount']
             self.msg_size = client_config['msg_size']
             self.msg_freq = client_config['msg_freq']
-            self.sleep_time = (1/self.msg_freq)
+            self.sleep_time = (1/self.msg_freq)+0.0001
             self.sent_counter = 0
             self.rtx_sleep = rtx_times[self.msg_qos]
             # Every run generates a Wireshark capture file, that is then compressed to a zip file with similar name
