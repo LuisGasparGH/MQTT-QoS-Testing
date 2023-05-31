@@ -22,7 +22,7 @@ with open("conf/config.json", "r") as config_file:
 
 # Stores all static variables needed from the configuration dictionary, adapted to the client
 # Also gathers the client-id from the input arguments, to be used in the MQTT client
-client_id = str(sys.argv[1])
+client_id = "client-"+ str(sys.argv[1])
 log_folder = str(config['logging']['folder']).replace("client-#", client_id)
 main_logger = config['logging']['main']
 timestamp_logger = config['logging']['timestamp']

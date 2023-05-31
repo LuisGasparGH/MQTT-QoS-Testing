@@ -18,7 +18,7 @@ with open("conf/config.json", "r") as config_file:
 
 # Stores all static variables needed from the configuration dictionary, adapted to the server
 # Also gathers the client-id from the input arguments, to be used in the MQTT client
-client_id = str(sys.argv[1])
+client_id = "server"
 log_folder = str(config['logging']['folder']).replace("client-#", client_id)
 main_logger = config['logging']['main']
 timestamp_logger = config['logging']['timestamp']
@@ -28,6 +28,7 @@ begin_client = config['topics']['begin_client']
 finish_client = config['topics']['finish_client']
 client_done = config['topics']['client_done']
 system_runs = config['system_details']['different_runs']
+run_repetitions = config['system_details']['run_repetitions']
 message_details = config['system_details']['message_details']
 
 # Class of the MQTT server code
@@ -218,12 +219,12 @@ class MQTT_Server:
             # The config file has a parameter with the amount of system runs to be performed, which will be iterated in here
             # However, to get a statistically relevant average, every different configuration is ran 10 times
             for run in range(system_runs):
-                for rep in range(10):
+                for rep in range(run_repetitions):
                     # Indicates on the logger which run is currently being ran, for the user to keep track
                     self.main_logger.info(f"==================================================")
-                    self.main_logger.info(f"PERFORMING RUN {(run+1)*(rep+1)}/{system_runs*10}...")
+                    self.main_logger.info(f"EXECUTING RUN {run+1}/{system_runs} | REPETITION {rep+1}/{run_repetitions}")
                     self.timestamp_logger.info(f"==================================================")
-                    self.timestamp_logger.info(f"PERFORMING RUN {(run+1)*(rep+1)}/{system_runs*10}...")
+                    self.timestamp_logger.info(f"EXECUTING RUN {run+1}/{system_runs} | REPETITION {rep+1}/{run_repetitions}")
                     # Gathers all the information for the next run to be performed, such as:
                     # - client amount
                     # - QoS to be used
