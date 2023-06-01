@@ -185,22 +185,28 @@ class MQTT_Server:
         # - Perceived frequency from the server side
         # - Frequency and time factors compared to the perfect results
         run_exec_time = (overall_finish_time-overall_start_time)
-        run_actual_freq = round((self.run_msg_amount-1)/(run_exec_time.total_seconds()),2)
-        run_time_factor = round((run_exec_time.total_seconds()/self.run_expected_time),3)
-        run_frequency_factor = round((run_actual_freq/self.run_msg_freq)*100,2)
-        self.main_logger.info(f"All {self.run_client_amount} clients finished publishing for this execution")
-        self.main_logger.info(f"==================================================")
-        self.main_logger.info(f"RUN RESULTS")
-        self.main_logger.info(f"Received {run_msg_counter} out of {self.run_total_msg_amount} messages")
-        self.main_logger.info(f"Calculated packet loss: {run_packet_loss}%")
-        self.main_logger.info(f"Run start time (of first received message): {overall_start_time.strftime('%H:%M:%S.%f')[:-3]}")
-        self.main_logger.info(f"Run expected finish time: {min(client_expected_finish).strftime('%H:%M:%S.%f')[:-3]}")
-        self.main_logger.info(f"Run actual finish time: {overall_finish_time.strftime('%H:%M:%S.%f')[:-3]}")
-        self.main_logger.info(f"Expected execution time (for {self.run_msg_amount-1} messages): {round(self.run_expected_time,3)} seconds")
-        self.main_logger.info(f"Total execution time (for {self.run_msg_amount-1} messages): {round(run_exec_time.total_seconds(),3)} seconds")
-        self.main_logger.info(f"Time factor: {run_time_factor}x of the expected time")
-        self.main_logger.info(f"Actual frequency: {run_actual_freq} Hz")
-        self.main_logger.info(f"Frequency factor: {run_frequency_factor}%")
+        if run_exec_time.total_seconds() < self.run_expected_time:
+            self.main_logger.error(f"Execution time is lower than expected time by {self.run_expected_time - run_exec_time.total_seconds()} seconds")
+            self.main_logger.error(f"Voiding run and repeating it")
+            return False
+        elif run_exec_time.total_seconds() >= self.run_expected_time:
+            run_actual_freq = round((self.run_msg_amount-1)/(run_exec_time.total_seconds()),2)
+            run_time_factor = round((run_exec_time.total_seconds()/self.run_expected_time),3)
+            run_frequency_factor = round((run_actual_freq/self.run_msg_freq)*100,2)
+            self.main_logger.info(f"All {self.run_client_amount} clients finished publishing for this execution")
+            self.main_logger.info(f"==================================================")
+            self.main_logger.info(f"RUN RESULTS")
+            self.main_logger.info(f"Received {run_msg_counter} out of {self.run_total_msg_amount} messages")
+            self.main_logger.info(f"Calculated packet loss: {run_packet_loss}%")
+            self.main_logger.info(f"Run start time (of first received message): {overall_start_time.strftime('%H:%M:%S.%f')[:-3]}")
+            self.main_logger.info(f"Run expected finish time: {min(client_expected_finish).strftime('%H:%M:%S.%f')[:-3]}")
+            self.main_logger.info(f"Run actual finish time: {overall_finish_time.strftime('%H:%M:%S.%f')[:-3]}")
+            self.main_logger.info(f"Expected execution time (for {self.run_msg_amount-1} messages): {round(self.run_expected_time,3)} seconds")
+            self.main_logger.info(f"Total execution time (for {self.run_msg_amount-1} messages): {round(run_exec_time.total_seconds(),3)} seconds")
+            self.main_logger.info(f"Time factor: {run_time_factor}x of the expected time")
+            self.main_logger.info(f"Actual frequency: {run_actual_freq} Hz")
+            self.main_logger.info(f"Frequency factor: {run_frequency_factor}%")
+            return True
 
     # System handler function, used to iterate through the configuration runs and give orders to all clients with each run information
     def sys_handler(self):
@@ -219,7 +225,8 @@ class MQTT_Server:
             # The config file has a parameter with the amount of system runs to be performed, which will be iterated in here
             # However, to get a statistically relevant average, every different configuration is ran 10 times
             for run in range(system_runs):
-                for rep in range(run_repetitions):
+                rep = 0
+                while rep < run_repetitions:
                     # Indicates on the logger which run is currently being ran, for the user to keep track
                     self.main_logger.info(f"==================================================")
                     self.main_logger.info(f"EXECUTING RUN {run+1}/{system_runs} | REPETITION {rep+1}/{run_repetitions}")
@@ -276,7 +283,10 @@ class MQTT_Server:
                     while self.run_finished == False:
                         time.sleep(15)
                     # Once the run is ended, all results are calculated and logged
-                    self.result_logging()
+                    # In case the run is deemed invalid, the repetition counter is not incremented and the run is repeated once more
+                    run_result = self.result_logging()
+                    if run_result == True:
+                        rep += 1
             # Once all runs are finished, cleans up everything and exits
             self.cleanup()
     
