@@ -193,7 +193,7 @@ class MQTT_Client:
         #                         That timeout is calculated using the predicted publish time (using message amount and frequency), and the retransmission sleep
         #                         time minus 10 seconds, so that it doesn't capture the client_done messages sent
         # - file -> defined before the thread was started, is the file name to which the capture will be output
-        sniff_duration = (self.msg_amount/self.msg_freq)+self.rtx_sleep-10
+        sniff_duration = (self.msg_amount/self.msg_freq)+self.rtx_sleep-2.5
         self.main_logger.info(f"Sniffing thread started")
         self.main_logger.info(f"Setting up TShark subprocess capture")
         self.main_logger.info(f"Interface: {wshark_interface}")
