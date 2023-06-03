@@ -8,6 +8,7 @@
     "topics":{
         "main_topic": "mqtt_qos/main_topic/#",
         "begin_client": "mqtt_qos/begin_client",
+        "void_run": "mqtt_qos/void_run",
         "finish_client": "mqtt_qos/finish_client",
         "client_done": "mqtt_qos/client_done"
     },
@@ -33,7 +34,7 @@
     },
     "rtx_times": [5,10,15],
     "tshark":{
-        "folder": "wireshark/client-#/",
+        "folder": "wireshark/client-#/*C/",
         "filter": "tcp port 1883",
         "extension": ".pcap",
         "interface": "eth0"

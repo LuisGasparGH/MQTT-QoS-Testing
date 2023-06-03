@@ -22,13 +22,15 @@ with open("conf/config.json", "r") as config_file:
 
 # Stores all static variables needed from the configuration dictionary, adapted to the client
 # Also gathers the client-id from the input arguments, to be used in the MQTT client
-client_id = "client-"+ str(sys.argv[1])
+client_number = int(sys.argv[1])
+client_id = "client-"+ str(client_number)
 log_folder = str(config['logging']['folder']).replace("client-#", client_id)
 main_logger = config['logging']['main']
 timestamp_logger = config['logging']['timestamp']
 broker_address = config['broker_address']
 main_topic = str(config['topics']['main_topic']).replace("#", client_id)
 begin_client = config['topics']['begin_client']
+void_run = config['topics']['void_run']
 finish_client = config['topics']['finish_client']
 client_done = config['topics']['client_done']
 wshark_folder = str(config['tshark']['folder']).replace("client-#", client_id)
@@ -47,18 +49,18 @@ class MQTT_Client:
         # Gathers current GMT/UTC datetime in string format, to append to the logger file name
         # This will allow distinction between different runs, as well as make it easy to locate the parity between client and server
         # logs, as the datetime obtained on both will be identical
-        append_time = datetime.datetime.utcnow().strftime('%H-%M-%S')
+        append_time = datetime.datetime.utcnow().strftime('%d-%m-%Y_%H-%M-%S')
         # Setup of the formatter for the loggers, to display time, levelname and message, and converts logger timezone to GMT as well
         formatter = logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s')
         formatter.converter = time.gmtime
         # Setup of the file handler, to output the logging into the propperly named files
-        main_log = log_folder + client_id + "-main-" + str(append_time) + ".log"
+        main_log = log_folder + client_id + "-main-T" + str(append_time) + ".log"
         main_handler = logging.FileHandler(main_log, mode = 'a')
         main_handler.setFormatter(formatter)
         self.main_logger = logging.getLogger(main_logger)
         self.main_logger.setLevel(logging.DEBUG)
         self.main_logger.addHandler(main_handler)
-        timestamp_log = log_folder + client_id + "-timestamp-" + str(append_time) + ".log"
+        timestamp_log = log_folder + client_id + "-timestamp-T" + str(append_time) + ".log"
         timestamp_handler = logging.FileHandler(timestamp_log, mode = 'a')
         timestamp_handler.setFormatter(formatter)
         self.timestamp_logger = logging.getLogger(timestamp_logger)
@@ -79,18 +81,27 @@ class MQTT_Client:
             # - subscribes to the begin_client and finish_client topics, used to receive orders from the server
             self.main_logger.info(f"Connected to the broker at {broker_address}")
             self.mqtt_connected = True
+            self.connect += 1
             self.zip = None
             self.client.subscribe(begin_client, qos=0)
             self.main_logger.info(f"Subscribed to {begin_client} topic with QoS 0")
             self.client.subscribe(finish_client, qos=0)
             self.main_logger.info(f"Subscribed to {finish_client} topic with QoS 0")
+            if self.connect > 1:
+                self.main_logger.warning(f"Client reconnected to broker, telling server to void current run")
+                self.client.publish(void_run, payload=client_id, qos=0)
+                self.void_run = True
         else:
             # In case of error during connection the log will contain the error code for debugging
             self.main_logger.warning(f"Error connecting to broker, with code {rc}")
 
     # Callback for when the client object successfully disconnects from the broker
     def on_disconnect(self, client, userdata, rc):
-        self.main_logger.info(f"Disconnected from broker at {broker_address}")
+        self.mqtt_connected = False
+        if rc==0:
+            self.main_logger.info(f"Disconnected from broker at {broker_address}")
+        else:
+            self.main_logger.warning(f"Abnormal disconnection from broker, with code {rc}")
 
     # Callback for the when the client object successfully completes the publish of a message (including necessary handshake for QoS levels 1 and 2)
     def on_publish(self, client, userdata, mid):
@@ -117,12 +128,12 @@ class MQTT_Client:
         # In order to help with run automation, the clients use one variable from the run configuration to check if they will be used for the received run
         # That variable is the client_amount, which indicates how many clients are used to this run
         # Since all clients have the same nomenclature (client-X), and start from 0, a quick string comparison can be used to check if the client will be used or not
-        client_check = "client-" + str(client_config['client_amount'])
         self.main_logger.info(f"Verifying if {client_id} will be used for this run")
-        if client_id >= client_check:
+        client_amount = int(client_config['client_amount'])
+        if client_number >= client_amount:
             # This client is not going to be used for this run, skipping
             self.main_logger.info(f"{client_id} will not be used for this run, skipping and waiting for next start order")
-        elif client_id < client_check:
+        elif client_number < client_amount:
             # This client is going to be used for this run, proceeding as normal
             self.main_logger.info(f"==================================================")
             self.main_logger.info(f"STARTING NEW RUN")
@@ -139,6 +150,7 @@ class MQTT_Client:
             self.sleep_time = (1/self.msg_freq)+0.00001
             self.sent_counter = 0
             self.rtx_sleep = rtx_times[self.msg_qos]
+            self.void_run = False
             # Every run generates a Wireshark capture file, that is then compressed to a zip file with similar name
             # For that effect, a base common name is defined, and then the specifics for each different file are added later (such as extensions)
             # The base name has a specific pattern: client-X-QX-AX-SX-FX
@@ -147,13 +159,13 @@ class MQTT_Client:
             # - AX -> indicates the message amount published in this run
             # - SX -> indicates the payload size of each message published for this run
             # - FX -> indicates the publish frequency used for this run
-            self.basename = wshark_folder + client_id + "-Q" + str(self.msg_qos) + "-A" + str(self.msg_amount) + \
+            self.basename = wshark_folder.replace("*C", f"{client_amount}C") + client_id + "-Q" + str(self.msg_qos) + "-A" + str(self.msg_amount) + \
                 "-S" + str(int(self.msg_size)) + "-F" + str(self.msg_freq)
             # On the zip file, the propper extension is added
             self.zip_file =  self.basename + ".zip"
             # For the Wireshark file, an additional timestamp string is added, like in the loggers, to differentiate between runs
-            # Files for runs with the exact same configuration (due to the fact that each configuration is ran 10 times to obtain an average) go into the same zip file
-            self.wshark_file = self.basename + "-T" + str(datetime.datetime.utcnow().strftime('%H-%M-%S')) + wshark_ext
+            # Files for runs with the exact same configuration (due to the fact that each configuration is ran multiple times to obtain an average) go into the same zip file
+            self.wshark_file = self.basename + "-T" + str(datetime.datetime.utcnow().strftime('%d-%m-%Y_%H-%M-%S')) + wshark_ext
             # Declares the thread where the sniffing handler function will be sniffing the network traffic. Has to be done everytime a new run is received
             self.sniffing_thread = None
             self.sniffing_thread = threading.Thread(target = self.sniffing_handler, args = ())
@@ -182,7 +194,6 @@ class MQTT_Client:
             self.client.unsubscribe(begin_client)
             self.client.unsubscribe(finish_client)
             self.client.disconnect()
-            self.mqtt_connected = False
 
     # Sniffing function, responsible for executing the TShark commands and capturing all network traffic for further analysis in Wireshark
     def sniffing_handler(self):
@@ -276,6 +287,7 @@ class MQTT_Client:
         self.main_logger.info(f"Creating MQTT Client with ID {client_id}")
         # Starts the MQTT client with specified client ID, passed through the input arguments, and defines all callbacks
         self.mqtt_connected = False
+        self.connect_count = 0
         self.client = mqtt.Client(client_id=client_id)
         self.client.on_connect = self.on_connect
         self.client.on_disconnect = self.on_disconnect
@@ -284,7 +296,7 @@ class MQTT_Client:
         self.client.message_callback_add(finish_client, self.on_finishclient)
         # The MQTT client connects to the broker and the network loop iterates forever until the cleanup function
         # The keepalive is set to 3 hours, to try and avoid the ping messages to appear on the capture files
-        self.client.connect(broker_address, 1883, 10800)
+        self.client.connect(broker_address, 1883, 60)
         self.client.loop_forever()
 
 # Starts one MQTT Client class object

@@ -25,6 +25,7 @@ timestamp_logger = config['logging']['timestamp']
 broker_address = config['broker_address']
 main_topic = str(config['topics']['main_topic'])
 begin_client = config['topics']['begin_client']
+void_run = config['topics']['void_run']
 finish_client = config['topics']['finish_client']
 client_done = config['topics']['client_done']
 system_runs = config['system_details']['different_runs']
@@ -41,18 +42,18 @@ class MQTT_Server:
         # Gathers current GMT/UTC datetime in string format, to append to the logger file name
         # This will allow distinction between different runs, as well as make it easy to locate the parity between client and server
         # logs, as the datetime obtained on both will be identical
-        append_time = datetime.datetime.utcnow().strftime('%H-%M-%S')
+        append_time = datetime.datetime.utcnow().strftime('%d-%m-%Y_%H-%M-%S')
         # Setup of the formatter for the loggers, to display time, levelname and message, and converts logger timezone to GMT as well
         formatter = logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s')
         formatter.converter = time.gmtime
         # Setup of the file handler, to output the logging into the propperly named files
-        main_log = log_folder + client_id + "-main-" + str(append_time) + ".log"
+        main_log = log_folder + client_id + "-main-T" + str(append_time) + ".log"
         main_handler = logging.FileHandler(main_log, mode = 'a')
         main_handler.setFormatter(formatter)
         self.main_logger = logging.getLogger(main_logger)
         self.main_logger.setLevel(logging.DEBUG)
         self.main_logger.addHandler(main_handler)
-        timestamp_log = log_folder + client_id + "-timestamp-" + str(append_time) + ".log"
+        timestamp_log = log_folder + client_id + "-timestamp-T" + str(append_time) + ".log"
         timestamp_handler = logging.FileHandler(timestamp_log, mode = 'a')
         timestamp_handler.setFormatter(formatter)
         self.timestamp_logger = logging.getLogger(timestamp_logger)
@@ -76,6 +77,8 @@ class MQTT_Server:
             self.main_logger.info(f"Connected to the broker at {broker_address}")
             self.client.subscribe(client_done, qos=0)
             self.main_logger.info(f"Subscribed to {client_done} topic with QoS 0")
+            self.client.subscribe(void_run, qos=0)
+            self.main_logger.info(f"Subscribed to {void_run} topic with QoS 0")
             self.sys_thread.start()
         else:
             # In case of error during connection the log will contain the error code for debugging
@@ -85,8 +88,12 @@ class MQTT_Server:
     
     # Callback for when the client object successfully disconnects from the broker
     def on_disconnect(self, client, userdata, rc):
-        self.main_logger.info(f"Disconnected from broker at {broker_address}")
-    
+        self.mqtt_connected = False
+        if rc==0:
+            self.main_logger.info(f"Disconnected from broker at {broker_address}")
+        else:
+            self.main_logger.warning(f"Abnormal disconnection from broker, with code {rc}")
+
     # Callback for when the server receives a message on the main topic, on any of the 10 clients
     # Its a callback per client instead of calculating the client on the received message, to try and minimize processing overhead during the transmission period
     def on_maintopic_c0(self, client, userdata, msg):
@@ -150,6 +157,12 @@ class MQTT_Server:
             # in order to proceed with result calculation and logging
             self.client.unsubscribe(main_topic)
             self.run_finished = True
+    
+    #Callback for when the server receives a message on the void run topic
+    def on_voidrun(self, client, userdata, msg):
+        # In case a client has a sudden reconnection to the broker, the run is void and repeated, in order to not halt progress
+        self.main_logger.warning(f"{str(msg.payload)} reconnected to the broker, voiding current run when finished")
+        self.void_run == True
     
     # Result logging function, used to calculate and output every relevant metric and result to the logger once a run is complete
     def result_logging(self):
@@ -265,6 +278,7 @@ class MQTT_Server:
                     self.run_client_received = [0 for _ in range(self.run_client_amount)]
                     self.run_client_timestamps = [[] for _ in range(self.run_client_amount)]
                     self.run_client_done = 0
+                    self.void_run = False
                     # Subscribes to the message topic with the correct QoS to be used in the run, and logs all the information of the run
                     self.client.subscribe(main_topic, qos=self.run_msg_qos)
                     self.main_logger.info(f"Subscribed to {main_topic} topic with QoS level {self.run_msg_qos}")
@@ -282,11 +296,12 @@ class MQTT_Server:
                     # While the run is not finished, the thread waits and periodically checks if the run has ended
                     while self.run_finished == False:
                         time.sleep(15)
-                    # Once the run is ended, all results are calculated and logged
-                    # In case the run is deemed invalid, the repetition counter is not incremented and the run is repeated once more
-                    run_result = self.result_logging()
-                    if run_result == True:
-                        rep += 1
+                    if self.void_run == False:
+                        # Once the run is ended, all results are calculated and logged
+                        # In case the run is deemed invalid, the repetition counter is not incremented and the run is repeated once more
+                        run_result = self.result_logging()
+                        if run_result == True:
+                            rep += 1
             # Once all runs are finished, cleans up everything and exits
             self.cleanup()
     
@@ -305,7 +320,6 @@ class MQTT_Server:
             self.client.unsubscribe(main_topic)
             self.client.unsubscribe(client_done)
             self.client.disconnect()
-            self.mqtt_connected = False
 
     # Starts the server class with all the variables necessary
     def __init__(self):
@@ -320,6 +334,7 @@ class MQTT_Server:
         self.main_logger.info(f"Creating MQTT Client with ID {client_id}")
         # Starts the MQTT client with specified ID, passed through the input arguments, and defines all callbacks
         self.mqtt_connected = False
+        self.void_run = False
         self.client = mqtt.Client(client_id=client_id)
         self.client.on_connect = self.on_connect
         self.client.on_disconnect = self.on_disconnect
@@ -334,9 +349,10 @@ class MQTT_Server:
         self.client.message_callback_add(main_topic.replace("#", f"client-8"), self.on_maintopic_c8)
         self.client.message_callback_add(main_topic.replace("#", f"client-9"), self.on_maintopic_c9)
         self.client.message_callback_add(client_done, self.on_clientdone)
+        self.client.message_callbacl_add(void_run, self.on_voidrun)
         # The MQTT client connects to the broker and the network loop iterates forever until the cleanup function
         # The keep alive is set to 3 hours
-        self.client.connect(broker_address, 1883, 10800)
+        self.client.connect(broker_address, 1883, 60)
         self.client.loop_forever()
 
 # Starts one MQTT Server class object
