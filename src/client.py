@@ -81,13 +81,13 @@ class MQTT_Client:
             # - subscribes to the begin_client and finish_client topics, used to receive orders from the server
             self.main_logger.info(f"Connected to the broker at {broker_address}")
             self.mqtt_connected = True
-            self.connect += 1
+            self.connect_count += 1
             self.zip = None
             self.client.subscribe(begin_client, qos=0)
             self.main_logger.info(f"Subscribed to {begin_client} topic with QoS 0")
             self.client.subscribe(finish_client, qos=0)
             self.main_logger.info(f"Subscribed to {finish_client} topic with QoS 0")
-            if self.connect > 1:
+            if self.connect_count > 1:
                 self.main_logger.warning(f"Client reconnected to broker, telling server to void current run")
                 self.client.publish(void_run, payload=client_id, qos=0)
                 self.void_run = True
@@ -153,12 +153,15 @@ class MQTT_Client:
             self.void_run = False
             # Every run generates a Wireshark capture file, that is then compressed to a zip file with similar name
             # For that effect, a base common name is defined, and then the specifics for each different file are added later (such as extensions)
-            # The base name has a specific pattern: client-X-QX-AX-SX-FX
+            # The base name has a specific pattern: wireshark/client-X/*C/client-X-QX-AX-SX-FX
+            # - *C -> indicates the amount of clients used for this run (only relevant for storage organization purposes)
             # - client-X -> indicates the client which generated this file
             # - QX -> indicates the QoS used for this run
             # - AX -> indicates the message amount published in this run
             # - SX -> indicates the payload size of each message published for this run
             # - FX -> indicates the publish frequency used for this run
+            # Creates the logs folder in case it doesn't exist
+            os.makedirs(wshark_folder.replace("*C", f"{client_amount}C"), exist_ok=True)
             self.basename = wshark_folder.replace("*C", f"{client_amount}C") + client_id + "-Q" + str(self.msg_qos) + "-A" + str(self.msg_amount) + \
                 "-S" + str(int(self.msg_size)) + "-F" + str(self.msg_freq)
             # On the zip file, the propper extension is added
@@ -242,34 +245,37 @@ class MQTT_Client:
             # Pauses the thread until the deadline specified is met
             pause.until(deadline)
         # Once the iteration is complete, simply waits for MQTT client that all messages have been sent, before proceeding to the next step
-        while self.pub_complete != True:
-            pass
+        while (self.pub_complete != True) and (self.void_run != True):
+            print(f"Debug: {self.pub_complete} | {self.void_run}")
+            time.sleep(0.5)
         # After all messages are sent, the client logs the total publish time from the client side, but for the amount of messages minus 1, to compare correctly
         # with the server logs and determine if any delays happened and where
-        pub_time = self.publish_end-self.publish_begin
-        pub_freq = round((self.sent_counter-1)/pub_time.total_seconds(),2)
-        self.main_logger.info(f"Publishing started: {self.publish_begin.strftime('%H:%M:%S.%f')[:-3]}")
-        self.main_logger.info(f"Publishing ended: {self.publish_end.strftime('%H:%M:%S.%f')[:-3]}")
-        self.main_logger.info(f"Total publish time (for {self.msg_amount-1} messages): {round(pub_time.total_seconds(),3)} seconds")
-        self.main_logger.info(f"Actual frequency (from the client): {pub_freq} Hz")
+        if self.void_run == False:
+            pub_time = self.publish_end-self.publish_begin
+            pub_freq = round((self.sent_counter-1)/pub_time.total_seconds(),2)
+            self.main_logger.info(f"Publishing started: {self.publish_begin.strftime('%H:%M:%S.%f')[:-3]}")
+            self.main_logger.info(f"Publishing ended: {self.publish_end.strftime('%H:%M:%S.%f')[:-3]}")
+            self.main_logger.info(f"Total publish time (for {self.msg_amount-1} messages): {round(pub_time.total_seconds(),3)} seconds")
+            self.main_logger.info(f"Actual frequency (from the client): {pub_freq} Hz")
         # In order to allow for any needed retransmission of the messages from the broker to the server, the thread sleeps for a specific period of time,
         # which depends on QoS and is determined in the configuration file
         self.main_logger.info(f"Sleeping for {self.rtx_sleep} seconds to allow for retransmission finishing for QoS {self.msg_qos}")
         time.sleep(self.rtx_sleep)
         # After this sleep, just to make sure it has terminated, the client sends a SIGKILL signal to the sniffing subprocess
         os.kill(self.tshark_subprocess.pid, signal.SIGTERM)
-        # Due to memory caching performed by TShark, memory usage can grow very quickly when sniffing the network, which would cause MQTT connection issues
-        # in long runs, voiding the results
-        # To avoid this, as soon as a run is complete, the capture file is compressed into the previously mentioned zip file
-        # Once zipped, the original files are deleted, to free up the cached memory as well as storage space
-        self.main_logger.info(f"Zipping TShark capture files into {os.path.basename(self.zip_file)} to free up memory")
-        self.zip = zipfile.ZipFile(self.zip_file, "a", zipfile.ZIP_DEFLATED)
-        for capture_file in os.listdir(wshark_folder):
-            if capture_file.endswith(wshark_ext):
-                self.main_logger.info(f"Zipping and deleting {capture_file}")
-                self.zip.write(wshark_folder+capture_file, capture_file)
-                os.remove(wshark_folder+capture_file)
-        self.zip.close()
+        if self.void_run == False:
+            # Due to memory caching performed by TShark, memory usage can grow very quickly when sniffing the network, which would cause MQTT connection issues
+            # in long runs, voiding the results
+            # To avoid this, as soon as a run is complete, the capture file is compressed into the previously mentioned zip file
+            # Once zipped, the original files are deleted, to free up the cached memory as well as storage space
+            self.main_logger.info(f"Zipping TShark capture files into {os.path.basename(self.zip_file)} to free up memory")
+            self.zip = zipfile.ZipFile(self.zip_file, "a", zipfile.ZIP_DEFLATED)
+            self.main_logger.info(f"Zipping and deleting {os.path.basename(self.wshark_file)}")
+            self.zip.write(self.wshark_file, os.path.basename(self.wshark_file))
+            self.zip.close()
+        elif self.void_run == True:
+            self.main_logger.info(f"Deleting TShark capture file of current run due to being void")
+        os.remove(self.wshark_file)
         # At least, the client has to inform the server that it has finished publishing messages for this run
         # This is done by sending a None payload to the client done topic
         self.client.publish(client_done, None, qos=0)
@@ -277,9 +283,8 @@ class MQTT_Client:
 
     # Starts the client class with all the variables necessary
     def __init__(self):
-        # Creates the logs and wireshark folders in case they doesn't exist
+        # Creates the logs folder in case it doesn't exist
         os.makedirs(log_folder, exist_ok=True)
-        os.makedirs(wshark_folder, exist_ok=True)
         # Performs the logger setup
         self.logger_setup()
         self.main_logger.info(f"==================================================")

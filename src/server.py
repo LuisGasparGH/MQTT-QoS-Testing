@@ -295,7 +295,7 @@ class MQTT_Server:
                     self.run_finished = False
                     # While the run is not finished, the thread waits and periodically checks if the run has ended
                     while self.run_finished == False:
-                        time.sleep(15)
+                        time.sleep(10)
                     if self.void_run == False:
                         # Once the run is ended, all results are calculated and logged
                         # In case the run is deemed invalid, the repetition counter is not incremented and the run is repeated once more
@@ -349,7 +349,7 @@ class MQTT_Server:
         self.client.message_callback_add(main_topic.replace("#", f"client-8"), self.on_maintopic_c8)
         self.client.message_callback_add(main_topic.replace("#", f"client-9"), self.on_maintopic_c9)
         self.client.message_callback_add(client_done, self.on_clientdone)
-        self.client.message_callbacl_add(void_run, self.on_voidrun)
+        self.client.message_callback_add(void_run, self.on_voidrun)
         # The MQTT client connects to the broker and the network loop iterates forever until the cleanup function
         # The keep alive is set to 3 hours
         self.client.connect(broker_address, 1883, 60)
