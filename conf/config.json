@@ -3,7 +3,7 @@
         "folder": "logs/client-#/",
         "main": "main-logger",
         "timestamp": "timestamp-logger"
-    },  
+    },
     "broker_address": "broker",
     "topics":{
         "main_topic": "mqtt_qos/main_topic/#",
