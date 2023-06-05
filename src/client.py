@@ -87,6 +87,8 @@ class MQTT_Client:
             self.main_logger.info(f"Subscribed to {begin_client} topic with QoS 0")
             self.client.subscribe(finish_client, qos=0)
             self.main_logger.info(f"Subscribed to {finish_client} topic with QoS 0")
+            self.client.subscribe(void_run, qos=0)
+            self.main_logger.info(f"Subscribed to {void_run} topic with QoS 0")
             if self.connect_count > 1:
                 self.main_logger.warning(f"Client reconnected to broker, telling server to void current run")
                 self.client.publish(void_run, payload=client_id, qos=0)
@@ -186,6 +188,11 @@ class MQTT_Client:
         self.main_logger.info(f"End order received from the server using topic {str(msg.topic)}")
         self.cleanup()
 
+    # Callback for when the client receives a message on the void run topic
+    def on_voidrun(self, client, userdata, msg):
+        # When a run is void, the other clients receive that indication as well, to ignore the results and delete the capture file
+        self.main_logger.warning(f"One of the clients has reconnected to the broker, voiding current run when finished")
+        self.void_run = True
     # Cleanup function, used to gracefully clean everything MQTT related, using the previously mentioned connected flag
     def cleanup(self):
         # Removes all added callbacks, and in case the client is connected, unsubscribes from the topics and disconnects
@@ -298,6 +305,7 @@ class MQTT_Client:
         self.client.on_publish = self.on_publish
         self.client.message_callback_add(begin_client, self.on_beginclient)
         self.client.message_callback_add(finish_client, self.on_finishclient)
+        self.client.message_callback_add(void_run, self.on_voidrun)
         # The MQTT client connects to the broker and the network loop iterates forever until the cleanup function
         # The keepalive is set to 3 hours, to try and avoid the ping messages to appear on the capture files
         self.client.connect(broker_address, 1883, 60)
