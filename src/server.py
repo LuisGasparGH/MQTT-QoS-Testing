@@ -162,7 +162,7 @@ class MQTT_Server:
     def on_voidrun(self, client, userdata, msg):
         # In case a client has a sudden reconnection to the broker, the run is void and repeated, in order to not halt progress
         self.main_logger.warning(f"{msg.payload.decode('utf-8')} reconnected to the broker, voiding current run when finished")
-        self.void_run == True
+        self.void_run = True
     
     # Result logging function, used to calculate and output every relevant metric and result to the logger once a run is complete
     def result_logging(self):
@@ -296,9 +296,7 @@ class MQTT_Server:
                     # While the run is not finished, the thread waits and periodically checks if the run has ended
                     while self.run_finished == False:
                         time.sleep(10)
-                    print(f"DEBUG1: {self.void_run}")
                     if self.void_run == False:
-                        print("DEBUG2")
                         # Once the run is ended, all results are calculated and logged
                         # In case the run is deemed invalid, the repetition counter is not incremented and the run is repeated once more
                         run_result = self.result_logging()

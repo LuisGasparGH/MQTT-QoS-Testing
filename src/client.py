@@ -246,7 +246,6 @@ class MQTT_Client:
             pause.until(deadline)
         # Once the iteration is complete, simply waits for MQTT client that all messages have been sent, before proceeding to the next step
         while (self.pub_complete != True) and (self.void_run != True):
-            print(f"Debug: {self.pub_complete} | {self.void_run}")
             time.sleep(0.5)
         # After all messages are sent, the client logs the total publish time from the client side, but for the amount of messages minus 1, to compare correctly
         # with the server logs and determine if any delays happened and where
