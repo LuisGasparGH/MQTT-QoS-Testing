@@ -7,6 +7,7 @@ import logging
 import sys
 import threading
 import os
+import uuid
 
 # Reads the configuration file, and imports it into a dictionary, which includes information about:
 # - Logging paths and names
@@ -239,11 +240,15 @@ class MQTT_Server:
             for run in range(system_runs):
                 rep = 0
                 while rep < run_repetitions:
+                    # Creates a unique UUID for the run, to allow for easier identification in the logs
+                    self.run_uuid = uuid.uuid4()
                     # Indicates on the logger which run is currently being ran, for the user to keep track
                     self.main_logger.info(f"==================================================")
                     self.main_logger.info(f"EXECUTING RUN {run+1}/{system_runs} | REPETITION {rep+1}/{run_repetitions}")
+                    self.main_logger.info(f"Run UUID: {str(self.run_uuid)}")
                     self.timestamp_logger.info(f"==================================================")
                     self.timestamp_logger.info(f"EXECUTING RUN {run+1}/{system_runs} | REPETITION {rep+1}/{run_repetitions}")
+                    self.timestamp_logger.info(f"Run UUID: {str(self.run_uuid)}")
                     # Gathers all the information for the next run to be performed, such as:
                     # - client amount
                     # - QoS to be used
@@ -288,7 +293,7 @@ class MQTT_Server:
                     self.main_logger.info(f"Publishing frequency: {self.run_msg_freq} Hz")
                     self.main_logger.info(f"QoS level: {self.run_msg_qos}")
                     # Dumps the information to a JSON payload to send to all the clients, and publishes it to the client topic
-                    client_config = json.dumps({"client_amount": self.run_client_amount, "msg_qos": self.run_msg_qos, "msg_amount": self.run_msg_amount, "msg_size": self.run_msg_size, "msg_freq": self.run_msg_freq})
+                    client_config = json.dumps({"uuid": str(self.run_uuid), "client_amount": self.run_client_amount, "msg_qos": self.run_msg_qos, "msg_amount": self.run_msg_amount, "msg_size": self.run_msg_size, "msg_freq": self.run_msg_freq})
                     self.client.publish(begin_client, client_config, qos=0)
                     self.main_logger.info(f"Sent configuration and start order to all the clients")
                     self.run_finished = False

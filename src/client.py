@@ -127,6 +127,7 @@ class MQTT_Client:
         # The run configuration is sent by the server via the begin_client messages
         # Once a message on this topic is received, the payload is parsed to a dictionary
         client_config = json.loads(msg.payload)
+        self.run_uuid = str(client_config['uuid'])
         # In order to help with run automation, the clients use one variable from the run configuration to check if they will be used for the received run
         # That variable is the client_amount, which indicates how many clients are used to this run
         # Since all clients have the same nomenclature (client-X), and start from 0, a quick string comparison can be used to check if the client will be used or not
@@ -139,8 +140,10 @@ class MQTT_Client:
             # This client is going to be used for this run, proceeding as normal
             self.main_logger.info(f"==================================================")
             self.main_logger.info(f"STARTING NEW RUN")
+            self.main_logger.info(f"Run UUID: {self.run_uuid}")
             self.timestamp_logger.info(f"==================================================")
             self.timestamp_logger.info(f"STARTING NEW RUN")
+            self.timestamp_logger.info(f"Run UUID: {self.run_uuid}")
             # Declares the thread where the run handler function will run. Has to be done everytime a new run is received
             self.run_thread = None
             self.run_thread = threading.Thread(target = self.run_handler, args = ())
