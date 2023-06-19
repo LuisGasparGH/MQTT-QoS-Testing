@@ -154,7 +154,8 @@ class MQTT_Client:
             self.msg_amount = client_config['msg_amount']
             self.msg_size = client_config['msg_size']
             self.msg_freq = client_config['msg_freq']
-            self.sleep_time = (1000000/self.msg_freq)+10
+            self.sleep_time = (1000/self.msg_freq)+0.01
+            self.rtx_sleep = rtx_times[self.msg_qos]
             self.sent_counter = 0
             self.void_run = False
             # Every run generates a Wireshark capture file, that is then compressed to a zip file with similar name
@@ -174,7 +175,7 @@ class MQTT_Client:
             self.zip_file =  self.basename + "-U" + self.run_uuid + ".zip"
             # For the Wireshark file, an additional run repetition and timestamp string is added, like in the loggers, to differentiate between runs
             # Files for runs with the exact same configuration (due to the fact that each configuration is ran multiple times to obtain an average) go into the same zip file
-            self.wshark_file = self.basename + "-R" + self.run_repetition + "-T" + str(datetime.datetime.utcnow().strftime('%d-%m-%Y_%H-%M-%S')) + wshark_ext
+            self.wshark_file = self.basename + "-R" + str(self.run_repetition+1) + "-T" + str(datetime.datetime.utcnow().strftime('%d-%m-%Y_%H-%M-%S')) + wshark_ext
             # Declares the thread where the sniffing handler function will be sniffing the network traffic. Has to be done everytime a new run is received
             self.sniffing_thread = None
             self.sniffing_thread = threading.Thread(target = self.sniffing_handler, args = ())
@@ -218,7 +219,7 @@ class MQTT_Client:
         #                         That timeout is calculated using the predicted publish time (using message amount and frequency), and the retransmission sleep
         #                         time minus 10 seconds, so that it doesn't capture the client_done messages sent
         # - file -> defined before the thread was started, is the file name to which the capture will be output
-        sniff_duration = (self.msg_amount/self.msg_freq)+rtx_times[self.msg_qos]
+        sniff_duration = (self.msg_amount/self.msg_freq)+self.rtx_sleep
         self.main_logger.info(f"Sniffing thread started")
         self.main_logger.info(f"Setting up TShark subprocess capture")
         self.main_logger.info(f"Interface: {wshark_interface}")
@@ -250,7 +251,7 @@ class MQTT_Client:
         # A cycle is iterated as many times as messages that need to be published in this run
         for msg in range(self.msg_amount):
             # Updates the deadline of this iteration start with a current datetime object
-            deadline += datetime.timedelta(seconds=(self.sleep_time))
+            deadline += datetime.timedelta(milliseconds=(self.sleep_time))
             # MQTT client publishes the messages to the main topic, with the built payload and correct QoS
             self.client.publish(main_topic, payload, qos=self.msg_qos)
             # Pauses the thread until the deadline specified is met
@@ -278,7 +279,8 @@ class MQTT_Client:
             # in long runs, voiding the results
             # To avoid this, as soon as a run is complete, the capture file is compressed into the previously mentioned zip file
             # Once zipped, the original files are deleted, to free up the cached memory as well as storage space
-            self.main_logger.info(f"Zipping TShark capture files into {os.path.basename(self.zip_file)} to free up memory")
+            self.main_logger.info(f"Zipping TShark capture files to free up memory")
+            self.main_logger.info(f"Zip file: {os.path.basename(self.zip_file)}")
             self.zip = zipfile.ZipFile(self.zip_file, "a", zipfile.ZIP_DEFLATED)
             self.main_logger.info(f"Zipping and deleting {os.path.basename(self.wshark_file)}")
             self.zip.write(self.wshark_file, os.path.basename(self.wshark_file))

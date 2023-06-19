@@ -269,16 +269,16 @@ class MQTT_Server:
             for run in range(system_runs):
                 rep = 0
                 # Generates an unique UUID for every different run, for easier identification in the logs
-                self.run_uuid = uuid.uuid4()
+                self.run_uuid = str(uuid.uuid4())
                 while rep < run_repetitions:
                     # Creates a unique UUID for the run, to allow for easier identification in the logs
                     # Indicates on the logger which run is currently being ran, for the user to keep track
                     self.main_logger.info(f"==================================================")
                     self.main_logger.info(f"EXECUTING RUN {run+1}/{system_runs} | REPETITION {rep+1}/{run_repetitions}")
-                    self.main_logger.info(f"Run UUID: {str(self.run_uuid)}")
+                    self.main_logger.info(f"Run UUID: {self.run_uuid}")
                     self.timestamp_logger.info(f"==================================================")
                     self.timestamp_logger.info(f"EXECUTING RUN {run+1}/{system_runs} | REPETITION {rep+1}/{run_repetitions}")
-                    self.timestamp_logger.info(f"Run UUID: {str(self.run_uuid)}")
+                    self.timestamp_logger.info(f"Run UUID: {self.run_uuid}")
                     # Gathers all the information for the next run to be performed, such as:
                     # - client amount
                     # - QoS to be used
@@ -320,7 +320,7 @@ class MQTT_Server:
                     self.zip_file =  self.basename + "-U" + self.run_uuid + ".zip"
                     # For the Wireshark file, an additional run repetition and timestamp string is added, like in the loggers, to differentiate between runs
                     # Files for runs with the exact same configuration (due to the fact that each configuration is ran multiple times to obtain an average) go into the same zip file
-                    self.wshark_file = self.basename + "-R" + rep + "-T" + str(datetime.datetime.utcnow().strftime('%d-%m-%Y_%H-%M-%S')) + wshark_ext
+                    self.wshark_file = self.basename + "-R" + str(rep+1) + "-T" + str(datetime.datetime.utcnow().strftime('%d-%m-%Y_%H-%M-%S')) + wshark_ext
                     # Declares the thread where the sniffing handler function will be sniffing the network traffic. Has to be done everytime a new run is received
                     self.sniffing_thread = None
                     self.sniffing_thread = threading.Thread(target = self.sniffing_handler, args = ())
@@ -344,19 +344,20 @@ class MQTT_Server:
                         time.sleep(10)
                     os.kill(self.tshark_subprocess.pid, signal.SIGTERM)
                     if self.void_run == False:
-                        # Due to memory caching performed by TShark, memory usage can grow very quickly when sniffing the network, which would cause MQTT connection issues
-                        # in long runs, voiding the results
-                        # To avoid this, as soon as a run is complete, the capture file is compressed into the previously mentioned zip file
-                        # Once zipped, the original files are deleted, to free up the cached memory as well as storage space
-                        self.main_logger.info(f"Zipping TShark capture files into {os.path.basename(self.zip_file)} to free up memory")
-                        self.zip = zipfile.ZipFile(self.zip_file, "a", zipfile.ZIP_DEFLATED)
-                        self.main_logger.info(f"Zipping and deleting {os.path.basename(self.wshark_file)}")
-                        self.zip.write(self.wshark_file, os.path.basename(self.wshark_file))
-                        self.zip.close()
                         # Once the run is ended, all results are calculated and logged
                         # In case the run is deemed invalid, the repetition counter is not incremented and the run is repeated once more
                         run_result = self.result_logging()
                         if run_result == True:
+                                # Due to memory caching performed by TShark, memory usage can grow very quickly when sniffing the network, which would cause MQTT connection issues
+                            # in long runs, voiding the results
+                            # To avoid this, as soon as a run is complete, the capture file is compressed into the previously mentioned zip file
+                            # Once zipped, the original files are deleted, to free up the cached memory as well as storage space
+                            self.main_logger.info(f"Zipping TShark capture files to free up memory")
+                            self.main_logger.info(f"Zip file: {os.path.basename(self.zip_file)}")
+                            self.zip = zipfile.ZipFile(self.zip_file, "a", zipfile.ZIP_DEFLATED)
+                            self.main_logger.info(f"Zipping and deleting {os.path.basename(self.wshark_file)}")
+                            self.zip.write(self.wshark_file, os.path.basename(self.wshark_file))
+                            self.zip.close()
                             rep += 1
                     elif self.void_run == True:
                         self.main_logger.info(f"Deleting TShark capture file of current run due to being void")
