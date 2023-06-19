@@ -24,7 +24,7 @@ with open("conf/config.json", "r") as config_file:
 # Also gathers the client-id from the input arguments, to be used in the MQTT client
 client_number = int(sys.argv[1])
 client_id = "client-"+ str(client_number)
-log_folder = str(config['logging']['folder']).replace("client-#", client_id)
+log_folder = str(config['logging']['folder']).replace("#", client_id)
 main_logger = config['logging']['main']
 timestamp_logger = config['logging']['timestamp']
 broker_address = config['broker_address']
@@ -33,10 +33,10 @@ begin_client = config['topics']['begin_client']
 void_run = config['topics']['void_run']
 finish_client = config['topics']['finish_client']
 client_done = config['topics']['client_done']
-wshark_folder = str(config['tshark']['folder']).replace("client-#", client_id)
+wshark_folder = str(config['tshark']['folder']).replace("#", client_id)
 wshark_filter = config['tshark']['filter']
 wshark_ext = config['tshark']['extension']
-wshark_interface = config['tshark']['interface']
+wshark_interface = config['tshark']['interface']['client']
 rtx_times = config['rtx_times']
 
 # Class of the MQTT client code
@@ -127,7 +127,6 @@ class MQTT_Client:
         # The run configuration is sent by the server via the begin_client messages
         # Once a message on this topic is received, the payload is parsed to a dictionary
         client_config = json.loads(msg.payload)
-        self.run_uuid = str(client_config['uuid'])
         # In order to help with run automation, the clients use one variable from the run configuration to check if they will be used for the received run
         # That variable is the client_amount, which indicates how many clients are used to this run
         # Since all clients have the same nomenclature (client-X), and start from 0, a quick string comparison can be used to check if the client will be used or not
@@ -138,6 +137,8 @@ class MQTT_Client:
             self.main_logger.info(f"{client_id} will not be used for this run, skipping and waiting for next start order")
         elif client_number < client_amount:
             # This client is going to be used for this run, proceeding as normal
+            # Every run has a unique UUID for easier identification in the logs. Every repetition has the same UUID
+            self.run_uuid = client_config['uuid']
             self.main_logger.info(f"==================================================")
             self.main_logger.info(f"STARTING NEW RUN")
             self.main_logger.info(f"Run UUID: {self.run_uuid}")
@@ -147,14 +148,14 @@ class MQTT_Client:
             # Declares the thread where the run handler function will run. Has to be done everytime a new run is received
             self.run_thread = None
             self.run_thread = threading.Thread(target = self.run_handler, args = ())
-            # Stores all needed run message settings, as well as calculates sleep periods for both normal publish and retransmission
+            # Stores all needed run message settings, as well as calculates sleep periods for normal publish
+            self.run_repetition = client_config['repetition']
             self.msg_qos = client_config['msg_qos']
             self.msg_amount = client_config['msg_amount']
             self.msg_size = client_config['msg_size']
             self.msg_freq = client_config['msg_freq']
-            self.sleep_time = (1/self.msg_freq)+0.00001
+            self.sleep_time = (1000000/self.msg_freq)+10
             self.sent_counter = 0
-            self.rtx_sleep = rtx_times[self.msg_qos]
             self.void_run = False
             # Every run generates a Wireshark capture file, that is then compressed to a zip file with similar name
             # For that effect, a base common name is defined, and then the specifics for each different file are added later (such as extensions)
@@ -169,11 +170,11 @@ class MQTT_Client:
             os.makedirs(wshark_folder.replace("*C", f"{client_amount}C"), exist_ok=True)
             self.basename = wshark_folder.replace("*C", f"{client_amount}C") + client_id + "-Q" + str(self.msg_qos) + "-A" + str(self.msg_amount) + \
                 "-S" + str(int(self.msg_size)) + "-F" + str(self.msg_freq)
-            # On the zip file, the propper extension is added
-            self.zip_file =  self.basename + ".zip"
-            # For the Wireshark file, an additional timestamp string is added, like in the loggers, to differentiate between runs
+            # On the zip file, the run UUID and propper extension is added
+            self.zip_file =  self.basename + "-U" + self.run_uuid + ".zip"
+            # For the Wireshark file, an additional run repetition and timestamp string is added, like in the loggers, to differentiate between runs
             # Files for runs with the exact same configuration (due to the fact that each configuration is ran multiple times to obtain an average) go into the same zip file
-            self.wshark_file = self.basename + "-T" + str(datetime.datetime.utcnow().strftime('%d-%m-%Y_%H-%M-%S')) + wshark_ext
+            self.wshark_file = self.basename + "-R" + self.run_repetition + "-T" + str(datetime.datetime.utcnow().strftime('%d-%m-%Y_%H-%M-%S')) + wshark_ext
             # Declares the thread where the sniffing handler function will be sniffing the network traffic. Has to be done everytime a new run is received
             self.sniffing_thread = None
             self.sniffing_thread = threading.Thread(target = self.sniffing_handler, args = ())
@@ -211,13 +212,13 @@ class MQTT_Client:
     # Sniffing function, responsible for executing the TShark commands and capturing all network traffic for further analysis in Wireshark
     def sniffing_handler(self):
         # Using the Subprocess module, starts a TShark capture with the following options:
-        # - interface -> taken from the config file, usually eth0 for the Raspberry Pi devices
+        # - interface -> taken from the config file, usually eth0
         # - capture filter -> taken from the config file, should be "tcp port 1883" to only capture traffic on this port and protocol
         # - autostop condition -> since the sniffing is not meant to run indefinitely, but rather once per run, a timeout is indicated
         #                         That timeout is calculated using the predicted publish time (using message amount and frequency), and the retransmission sleep
         #                         time minus 10 seconds, so that it doesn't capture the client_done messages sent
         # - file -> defined before the thread was started, is the file name to which the capture will be output
-        sniff_duration = (self.msg_amount/self.msg_freq)+self.rtx_sleep-2.5
+        sniff_duration = (self.msg_amount/self.msg_freq)+rtx_times[self.msg_qos]
         self.main_logger.info(f"Sniffing thread started")
         self.main_logger.info(f"Setting up TShark subprocess capture")
         self.main_logger.info(f"Interface: {wshark_interface}")
@@ -256,7 +257,7 @@ class MQTT_Client:
             pause.until(deadline)
         # Once the iteration is complete, simply waits for MQTT client that all messages have been sent, before proceeding to the next step
         while (self.pub_complete != True) and (self.void_run != True):
-            time.sleep(0.5)
+            time.sleep(2.5)
         # After all messages are sent, the client logs the total publish time from the client side, but for the amount of messages minus 1, to compare correctly
         # with the server logs and determine if any delays happened and where
         if self.void_run == False:
