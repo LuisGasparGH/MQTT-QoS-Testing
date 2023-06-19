@@ -29,8 +29,8 @@
         "filter": "tcp port 1883",
         "extension": ".pcap",
         "interface":{
-            "client": "lo",
-            "server": "lo"    
+            "client": "eth0",
+            "server": "eth0"    
         }
     }
 }
