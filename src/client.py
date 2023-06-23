@@ -116,8 +116,8 @@ class MQTT_Client:
         # When all messages are published to the broker, a the final datetime is measured, in order to have a client-side publish time
         # Changes the pub_complete flag to true in order to make the client proceed
         if self.sent_counter == self.msg_amount:
-            self.main_logger.info(f"Publish of all {self.msg_amount} messages complete")
             self.publish_end = datetime.datetime.now()
+            self.main_logger.info(f"Publish of all {self.msg_amount} messages complete")
             self.pub_complete = True
 
     # Callback for when the client receives a message on the topic begin client
@@ -154,7 +154,7 @@ class MQTT_Client:
             self.msg_amount = client_config['msg_amount']
             self.msg_size = client_config['msg_size']
             self.msg_freq = client_config['msg_freq']
-            self.sleep_time = (1000/self.msg_freq)+0.01
+            self.sleep_time = (1000000/self.msg_freq)+10
             self.rtx_sleep = rtx_times[self.msg_qos]
             self.sent_counter = 0
             self.void_run = False
@@ -251,7 +251,7 @@ class MQTT_Client:
         # A cycle is iterated as many times as messages that need to be published in this run
         for msg in range(self.msg_amount):
             # Updates the deadline of this iteration start with a current datetime object
-            deadline += datetime.timedelta(milliseconds=(self.sleep_time))
+            deadline += datetime.timedelta(microseconds=(self.sleep_time))
             # MQTT client publishes the messages to the main topic, with the built payload and correct QoS
             self.client.publish(main_topic, payload, qos=self.msg_qos)
             # Pauses the thread until the deadline specified is met
