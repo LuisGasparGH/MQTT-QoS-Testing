@@ -1,2 +1,3 @@
 #! /bin/bash
-sudo rm -r logs/ wireshark/
+sudo rm -rf logs/ wireshark/
+clear

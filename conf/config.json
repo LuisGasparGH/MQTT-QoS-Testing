@@ -20,7 +20,7 @@
             "msg_qos": [0,1,2],
             "msg_amount": 1000,
             "msg_size": 250000,
-            "msg_freq": 50
+            "msg_freq": 30
         }
     },
     "rtx_times": [10,15,20],
@@ -30,7 +30,7 @@
         "extension": ".pcap",
         "interface":{
             "client": "eth0",
-            "server": "enp4s0"    
+            "server": "eth0"    
         }
     }
 }

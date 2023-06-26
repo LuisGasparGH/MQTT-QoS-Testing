@@ -208,6 +208,7 @@ class MQTT_Server:
         # - Frequency and time factors compared to the perfect results
         run_exec_time = (overall_finish_time-overall_start_time)
         if run_exec_time.total_seconds() < self.run_expected_time:
+            # TODO: Inform clients of void run in this situation
             self.main_logger.warning(f"Execution time is lower than expected time by {round(self.run_expected_time - run_exec_time.total_seconds(),3)} seconds, voiding current run")
             return False
         elif run_exec_time.total_seconds() >= self.run_expected_time:
