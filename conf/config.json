@@ -13,11 +13,11 @@
         "client_done": "mqtt_qos/client_done"
     },
     "system_details":{
-        "different_runs": 3,
+        "different_runs": 1,
         "run_repetitions": 10,
         "message_details":{
-            "client_amount": 5,
-            "msg_qos": [0,1,2],
+            "client_amount": 7,
+            "msg_qos": 2,
             "msg_amount": 1000,
             "msg_size": 250000,
             "msg_freq": 30
@@ -25,12 +25,13 @@
     },
     "rtx_times": [10,15,20],
     "tshark":{
+        "enable": true,
         "folder": "wireshark/#/*C/",
         "filter": "tcp port 1883",
         "extension": ".pcap",
         "interface":{
             "client": "eth0",
-            "server": "eth0"    
+            "server": "enp4s0"    
         }
     }
 }
