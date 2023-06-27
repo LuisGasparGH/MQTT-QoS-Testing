@@ -254,12 +254,11 @@ class MQTT_Client:
         for msg in range(self.msg_amount):
             # Updates the deadline of this iteration start with a current datetime object
             deadline += datetime.timedelta(microseconds=(self.sleep_time))
-            print(f"Current deadline: {deadline}")
             # MQTT client publishes the messages to the main topic, with the built payload and correct QoS
             self.client.publish(main_topic, payload, qos=self.msg_qos)
             # Pauses the thread until the deadline specified is met
             pause.until(deadline)
-            print(f"Post pause: {datetime.datetime.now()}")
+            print(f"Time taken: {(datetime.datetime.now()-deadline).total_seconds}")
         # Once the iteration is complete, simply waits for MQTT client that all messages have been sent, before proceeding to the next step
         while (self.pub_complete != True) and (self.void_run != True):
             time.sleep(2.5)
