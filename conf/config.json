@@ -14,7 +14,7 @@
     },
     "system_details":{
         "different_runs": 1,
-        "run_repetitions": 3,
+        "run_repetitions": 20,
         "message_details":{
             "client_amount": 1,
             "msg_qos": 0,
@@ -30,8 +30,8 @@
         "filter": "tcp port 1883",
         "extension": ".pcap",
         "interface":{
-            "client": "lo",
-            "server": "lo"    
+            "client": "eth0",
+            "server": "enp4s0"    
         }
     }
 }
