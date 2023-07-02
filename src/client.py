@@ -8,8 +8,7 @@ import sys
 import threading
 import os
 import pause
-import subprocess
-import signal
+import pyshark
 import zipfile
 
 # Reads the configuration file, and imports it into a dictionary, which includes information about:
@@ -155,7 +154,7 @@ class MQTT_Client:
             self.msg_amount = client_config['msg_amount']
             self.msg_size = client_config['msg_size']
             self.msg_freq = client_config['msg_freq']
-            self.sleep_time = (1000000/self.msg_freq)+10
+            self.sleep_time = (1000000/self.msg_freq)+20
             self.rtx_sleep = rtx_times[self.msg_qos]
             self.sent_counter = 0
             self.void_run = False
@@ -212,31 +211,27 @@ class MQTT_Client:
             self.client.unsubscribe(finish_client)
             self.client.disconnect()
 
-    # Sniffing function, responsible for executing the TShark commands and capturing all network traffic for further analysis in Wireshark
+    # Sniffing function, responsible for executing the PyShark capture of all network traffic for further analysis in Wireshark
     def sniffing_handler(self):
-        # Using the Subprocess module, starts a TShark capture with the following options:
+        # Using the Pyshark library, starts a live capture with the following options:
         # - interface -> taken from the config file, usually eth0
-        # - capture filter -> taken from the config file, should be "tcp port 1883" to only capture traffic on this port and protocol
-        # - autostop condition -> since the sniffing is not meant to run indefinitely, but rather once per run, a timeout is indicated
-        #                         That timeout is calculated using the predicted publish time (using message amount and frequency), and the retransmission sleep
-        #                         time minus 10 seconds, so that it doesn't capture the client_done messages sent
-        # - file -> defined before the thread was started, is the file name to which the capture will be output
+        # - bpf filter -> taken from the config file, should be "tcp port 1883" to only capture traffic on this port and protocol
+        # - output file -> defined before the thread was started, is the file name to which the capture will be output
         sniff_duration = (self.msg_amount/self.msg_freq)+self.rtx_sleep
         self.main_logger.info(f"Sniffing thread started")
-        self.main_logger.info(f"Setting up TShark subprocess capture")
+        self.main_logger.info(f"Setting up PyShark Live Capture")
         self.main_logger.info(f"Interface: {wshark_interface}")
-        self.main_logger.info(f"Capture Filter: {wshark_filter}")
+        self.main_logger.info(f"Capture filter: {wshark_filter}")
         self.main_logger.info(f"Capture file: {os.path.basename(self.wshark_file)}")
         self.main_logger.info(f"Sniffing duration: {round(sniff_duration,2)} seconds")
-        tshark_call = ["tshark", "-i", wshark_interface, "-f", wshark_filter,
-                       "-a", f"duration:{sniff_duration}", "-w", self.wshark_file]
-        # Starts the subprocess and saves the details (including process ID), but directs any output to DEVNULL in order to keep the logs clean
-        self.tshark_subprocess = subprocess.Popen(tshark_call, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        pyshark_capture = pyshark.LiveCapture(interface=wshark_interface, bpf_filter=wshark_filter, output_file=self.wshark_file)
+        # Once the Live Capture object is set for this iteration, starts sniffing until the timeout is reached
+        pyshark_capture.sniff(timeout=sniff_duration)
 
     # Run handler function, used to execute each run with the information received from the server
     def run_handler(self):
         self.main_logger.info(f"Run thread started")
-        # In order to give the client some setup time for the TShark capture, the client sleeps for 5 seconds before starting the run
+        # In order to give the client some setup time for the PyShark capture, the client sleeps for 5 seconds before starting the run
         time.sleep(5)
         # Creates a payload with the appropriate size, and defines some variables, more specifically the publish_begin and publish_end
         # These is where the datetimes from the client-side publish measurement will be stored
@@ -258,7 +253,6 @@ class MQTT_Client:
             self.client.publish(main_topic, payload, qos=self.msg_qos)
             # Pauses the thread until the deadline specified is met
             pause.until(deadline)
-            print(f"Time taken: {(datetime.datetime.now()-deadline).total_seconds}")
         # Once the iteration is complete, simply waits for MQTT client that all messages have been sent, before proceeding to the next step
         while (self.pub_complete != True) and (self.void_run != True):
             time.sleep(2.5)
@@ -277,20 +271,19 @@ class MQTT_Client:
         time.sleep(self.rtx_sleep)
         # After this sleep, just to make sure it has terminated, the client sends a SIGKILL signal to the sniffing subprocess
         if wshark_enabled is True:
-            os.kill(self.tshark_subprocess.pid, signal.SIGTERM)
             if self.void_run == False:
                 # Due to memory caching performed by TShark, memory usage can grow very quickly when sniffing the network, which would cause MQTT connection issues
                 # in long runs, voiding the results
                 # To avoid this, as soon as a run is complete, the capture file is compressed into the previously mentioned zip file
                 # Once zipped, the original files are deleted, to free up the cached memory as well as storage space
-                self.main_logger.info(f"Zipping TShark capture files to free up memory")
+                self.main_logger.info(f"Zipping PyShark capture files to free up memory")
                 self.main_logger.info(f"Zip file: {os.path.basename(self.zip_file)}")
                 self.zip = zipfile.ZipFile(self.zip_file, "a", zipfile.ZIP_DEFLATED)
                 self.main_logger.info(f"Zipping and deleting {os.path.basename(self.wshark_file)}")
                 self.zip.write(self.wshark_file, os.path.basename(self.wshark_file))
                 self.zip.close()
             elif self.void_run == True:
-                self.main_logger.info(f"Deleting TShark capture file of current run due to being void")
+                self.main_logger.info(f"Deleting PyShark capture file of current run due to being void")
             os.remove(self.wshark_file)
         # At least, the client has to inform the server that it has finished publishing messages for this run
         # This is done by sending a None payload to the client done topic
