@@ -13,25 +13,26 @@
         "client_done": "mqtt_qos/client_done"
     },
     "system_details":{
-        "different_runs": 1,
-        "run_repetitions": 20,
+        "different_runs": 2,
+        "run_repetitions": 5,
         "message_details":{
             "client_amount": 1,
-            "msg_qos": 0,
+            "msg_qos": 1,
             "msg_amount": 1000,
             "msg_size": 250000,
-            "msg_freq": 30
+            "msg_freq": [30,50]
         }
     },
     "rtx_times": [10,15,20],
-    "tshark":{
+    "dumpcap":{
         "enable": true,
-        "folder": "wireshark/#/*C/",
+        "folder": "dumpcap/#/*C/",
         "filter": "tcp port 1883",
-        "extension": ".pcap",
+        "extension": ".pcapng",
+        "buffer_size": 1536,
         "interface":{
             "client": "eth0",
-            "server": "enp4s0"    
+            "server": "enp4s0"
         }
     }
 }

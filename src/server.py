@@ -8,14 +8,14 @@ import sys
 import threading
 import os
 import uuid
-import pyshark
+import subprocess
 import zipfile
 
 # Reads the configuration file, and imports it into a dictionary, which includes information about:
 # - Logging paths and names
 # - MQTT topics
 # - Execution system message details and repetitions
-# - TShark details
+# - Dumpcap details
 with open("conf/config.json", "r") as config_file:
     config = json.load(config_file)
 
@@ -34,11 +34,12 @@ client_done = config['topics']['client_done']
 system_runs = config['system_details']['different_runs']
 run_repetitions = config['system_details']['run_repetitions']
 message_details = config['system_details']['message_details']
-wshark_enabled = config['tshark']['enable']
-wshark_folder = str(config['tshark']['folder']).replace("#", client_id)
-wshark_filter = config['tshark']['filter']
-wshark_ext = config['tshark']['extension']
-wshark_interface = config['tshark']['interface']['server']
+dumpcap_enabled = config['dumpcap']['enable']
+dumpcap_folder = str(config['dumpcap']['folder']).replace("#", client_id)
+dumpcap_filter = config['dumpcap']['filter']
+dumpcap_ext = config['dumpcap']['extension']
+dumpcap_buffer = config['dumpcap']['buffer_size']
+dumpcap_interface = config['dumpcap']['interface']['server']
 rtx_times = config['rtx_times']
 
 # Class of the MQTT server code
@@ -229,23 +230,6 @@ class MQTT_Server:
             self.main_logger.info(f"Frequency factor: {run_frequency_factor}%")
             return True
 
-    # Sniffing function, responsible for executing the PyShark capture of all network traffic for further analysis in Wireshark
-    def sniffing_handler(self):
-        # Using the Pyshark library, starts a live capture with the following options:
-        # - interface -> taken from the config file, usually eth0
-        # - bpf filter -> taken from the config file, should be "tcp port 1883" to only capture traffic on this port and protocol
-        # - output file -> defined before the thread was started, is the file name to which the capture will be output
-        sniff_duration = (self.run_msg_amount/self.run_msg_freq)+rtx_times[self.run_msg_qos]+7.5
-        self.main_logger.info(f"Sniffing thread started")
-        self.main_logger.info(f"Setting up PyShark Live Capture")
-        self.main_logger.info(f"Interface: {wshark_interface}")
-        self.main_logger.info(f"Capture filter: {wshark_filter}")
-        self.main_logger.info(f"Capture file: {os.path.basename(self.wshark_file)}")
-        self.main_logger.info(f"Sniffing duration: {round(sniff_duration,2)} seconds")
-        pyshark_capture = pyshark.LiveCapture(interface=wshark_interface, bpf_filter=wshark_filter, output_file=self.wshark_file)
-        # Once the Live Capture object is set for this iteration, starts sniffing until the timeout is reached
-        pyshark_capture.sniff(timeout=sniff_duration)
-
     # System handler function, used to iterate through the configuration runs and give orders to all clients with each run information
     def sys_handler(self):
         # Before the server starts ordering the runs, it will double check the config file to make 
@@ -309,18 +293,15 @@ class MQTT_Server:
                     self.run_client_timestamps = [[] for _ in range(self.run_client_amount)]
                     self.run_client_done = 0
                     self.void_run = False
-                    if wshark_enabled is True:
-                        os.makedirs(wshark_folder.replace("*C", f"{self.run_client_amount}C"), exist_ok=True)
-                        self.basename = wshark_folder.replace("*C", f"{self.run_client_amount}C") + client_id + "-Q" + str(self.run_msg_qos) + "-A" + str(self.run_msg_amount) + \
+                    if dumpcap_enabled is True:
+                        os.makedirs(dumpcap_folder.replace("*C", f"{self.run_client_amount}C"), exist_ok=True)
+                        self.basename = dumpcap_folder.replace("*C", f"{self.run_client_amount}C") + client_id + "-Q" + str(self.run_msg_qos) + "-A" + str(self.run_msg_amount) + \
                             "-S" + str(int(self.run_msg_size)) + "-F" + str(self.run_msg_freq)
                         # On the zip file, the run UUID and propper extension is added
                         self.zip_file =  self.basename + "-U" + self.run_uuid + ".zip"
-                        # For the Wireshark file, an additional run repetition and timestamp string is added, like in the loggers, to differentiate between runs
+                        # For the capture file, an additional run repetition and timestamp string is added, like in the loggers, to differentiate between runs
                         # Files for runs with the exact same configuration (due to the fact that each configuration is ran multiple times to obtain an average) go into the same zip file
-                        self.wshark_file = self.basename + "-R" + str(rep+1) + "-T" + str(datetime.datetime.utcnow().strftime('%d-%m-%Y_%H-%M-%S')) + wshark_ext
-                        # Declares the thread where the sniffing handler function will be sniffing the network traffic. Has to be done everytime a new run is received
-                        self.sniffing_thread = None
-                        self.sniffing_thread = threading.Thread(target = self.sniffing_handler, args = ())
+                        self.dumpcap_file = self.basename + "-R" + str(rep+1) + "-T" + str(datetime.datetime.utcnow().strftime('%d-%m-%Y_%H-%M-%S')) + dumpcap_ext
                     # Subscribes to the message topic with the correct QoS to be used in the run, and logs all the information of the run
                     self.client.subscribe(main_topic, qos=self.run_msg_qos)
                     self.main_logger.info(f"Subscribed to {main_topic} topic with QoS level {self.run_msg_qos}")
@@ -335,8 +316,22 @@ class MQTT_Server:
                     self.client.publish(begin_client, client_config, qos=0)
                     self.main_logger.info(f"Sent configuration and start order to all the clients")
                     self.run_finished = False
-                    if wshark_enabled is True:
-                        self.sniffing_thread.start()
+                    if dumpcap_enabled is True:
+                        # Using the Subprocess module, starts a Dumpcap capture with the following options:
+                        # - interface -> taken from the config file, usually eth0
+                        # - capture filter -> taken from the config file, should be "tcp port 1883" to only capture traffic on this port and protocol
+                        # - output file -> defined before the thread was started, is the file name to which the capture will be output
+                        # - duration -> the amount of time the sniffing will run, calculated from the expected time and extra setup delays
+                        # - buffer size -> in order to avoid publish interruptions due to disk writing of the packets, a big buffer is defined in order to store in memory before writing
+                        sniff_duration = (self.run_msg_amount/self.run_msg_freq)+rtx_times[self.run_msg_qos]+7.5
+                        self.main_logger.info(f"Setting up Dumpcap capture")
+                        self.main_logger.info(f"Interface: {dumpcap_interface}")
+                        self.main_logger.info(f"Capture filter: {dumpcap_filter}")
+                        self.main_logger.info(f"Capture file: {os.path.basename(self.dumpcap_file)}")
+                        self.main_logger.info(f"Sniffing duration: {round(sniff_duration,2)} seconds")
+                        dumpcap_call = ["dumpcap", "-i", dumpcap_interface, "-n", "-q", "-f", dumpcap_filter,
+                                        "-a", f"duration:{sniff_duration}", "-B", str(dumpcap_buffer), "-w", self.dumpcap_file]
+                        self.dumpcap_subprocess = subprocess.Popen(dumpcap_call, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     # While the run is not finished, the thread waits and periodically checks if the run has ended
                     while self.run_finished == False:
                         time.sleep(10)
@@ -345,22 +340,21 @@ class MQTT_Server:
                         # In case the run is deemed invalid, the repetition counter is not incremented and the run is repeated once more
                         run_result = self.result_logging()
                         if run_result == True:
-                            # Due to memory caching performed by TShark, memory usage can grow very quickly when sniffing the network, which would cause MQTT connection issues
-                            # in long runs, voiding the results
-                            # To avoid this, as soon as a run is complete, the capture file is compressed into the previously mentioned zip file
+                            # Since capture files can be quite big in size, as soon as a run is complete, the capture file is compressed into the previously mentioned zip file
                             # Once zipped, the original files are deleted, to free up the cached memory as well as storage space
-                            if wshark_enabled is True:
-                                self.main_logger.info(f"Zipping PyShark capture files to free up memory")
+                            if dumpcap_enabled is True:
+                                self.main_logger.info(f"Zipping Dumpcap capture files to free up memory")
                                 self.main_logger.info(f"Zip file: {os.path.basename(self.zip_file)}")
                                 self.zip = zipfile.ZipFile(self.zip_file, "a", zipfile.ZIP_DEFLATED)
-                                self.main_logger.info(f"Zipping and deleting {os.path.basename(self.wshark_file)}")
-                                self.zip.write(self.wshark_file, os.path.basename(self.wshark_file))
+                                self.main_logger.info(f"Zipping and deleting {os.path.basename(self.dumpcap_file)}")
+                                self.zip.write(self.dumpcap_file, os.path.basename(self.dumpcap_file))
                                 self.zip.close()
                             rep += 1
-                    elif self.void_run == True and wshark_enabled is True:
-                        self.main_logger.info(f"Deleting PyShark capture file of current run due to being void")
-                    if wshark_enabled is True:
-                        os.remove(self.wshark_file)
+                    # If a run is deemed as void, the capture file will not be needed, and is deleted without being zipped
+                    elif self.void_run == True and dumpcap_enabled is True:
+                        self.main_logger.info(f"Deleting Dumpcap capture file of current run due to being void")
+                    if dumpcap_enabled is True:
+                        os.remove(self.dumpcap_file)
             # Once all runs are finished, cleans up everything and exits
             self.cleanup()
     

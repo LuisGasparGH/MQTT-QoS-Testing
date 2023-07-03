@@ -1,3 +1,3 @@
 #! /bin/bash
-sudo rm -rf logs/ wireshark/
+sudo rm -rf logs/ dumpcap/
 clear
