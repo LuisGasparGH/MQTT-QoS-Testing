@@ -329,7 +329,7 @@ class MQTT_Server:
                         self.main_logger.info(f"Capture filter: {dumpcap_filter}")
                         self.main_logger.info(f"Capture file: {os.path.basename(self.dumpcap_file)}")
                         self.main_logger.info(f"Sniffing duration: {round(sniff_duration,2)} seconds")
-                        dumpcap_call = ["dumpcap", "-i", dumpcap_interface, "-n", "-q", "-f", dumpcap_filter,
+                        dumpcap_call = ["dumpcap", "-i", dumpcap_interface, "-P", "-f", dumpcap_filter,
                                         "-a", f"duration:{sniff_duration}", "-B", str(dumpcap_buffer), "-w", self.dumpcap_file]
                         self.dumpcap_subprocess = subprocess.Popen(dumpcap_call, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     # While the run is not finished, the thread waits and periodically checks if the run has ended

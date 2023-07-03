@@ -29,7 +29,7 @@
         "folder": "dumpcap/#/*C/",
         "filter": "tcp port 1883",
         "extension": ".pcapng",
-        "buffer_size": 1536,
+        "buffer_size": 1024,
         "interface":{
             "client": "eth0",
             "server": "enp4s0"
