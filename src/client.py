@@ -230,7 +230,6 @@ class MQTT_Client:
         time.sleep(5)
         # Creates a payload with the appropriate size, and defines some variables, more specifically the publish_begin and publish_end
         # These is where the datetimes from the client-side publish measurement will be stored
-        payload = bytearray(self.msg_size)
         self.pub_complete = False
         self.publish_begin = None
         self.publish_end = None
@@ -245,6 +244,8 @@ class MQTT_Client:
             # Updates the deadline of this iteration start with a current datetime object
             deadline += datetime.timedelta(microseconds=(self.sleep_time))
             # MQTT client publishes the messages to the main topic, with the built payload and correct QoS
+            payload = bytearray(self.msg_size-2)
+            payload.extend(msg.to_bytes(length=2, byteorder='big'))
             self.client.publish(main_topic, payload, qos=self.msg_qos)
             # Pauses the thread until the deadline specified is met
             pause.until(deadline)
