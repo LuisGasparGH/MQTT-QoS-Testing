@@ -269,7 +269,7 @@ class MQTT_Client:
             if self.void_run == False:
                 # Since capture files can be quite big in size, as soon as a run is complete, the capture file is compressed into the previously mentioned zip file
                 # Once zipped, the original files are deleted, to free up the cached memory as well as storage space
-                self.main_logger.info(f"Zipping Dum capture files to free up memory")
+                self.main_logger.info(f"Zipping Dumpcap capture files to free up memory")
                 self.main_logger.info(f"Zip file: {os.path.basename(self.zip_file)}")
                 self.zip = zipfile.ZipFile(self.zip_file, "a", zipfile.ZIP_DEFLATED)
                 self.main_logger.info(f"Zipping and deleting {os.path.basename(self.dumpcap_file)}")
