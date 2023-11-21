@@ -5,19 +5,23 @@ import datetime
 import json
 import logging
 import sys
+import re
 import threading
 import os
 import uuid
 import subprocess
 import zipfile
 
+mosquitto_conf = "conf/mosquitto.conf"
+system_conf = "conf/config.json"
 # Reads the configuration file, and imports it into a dictionary, which includes information about:
 # - Logging paths and names
 # - MQTT topics
 # - Execution system message details and repetitions
 # - Dumpcap details
-with open("conf/config.json", "r") as config_file:
+with open(system_conf, "r") as config_file:
     config = json.load(config_file)
+    config_file.close()
 
 # Stores all static variables needed from the configuration dictionary, adapted to the server
 # Also gathers the client-id from the input arguments, to be used in the MQTT client
@@ -33,6 +37,8 @@ finish_client = config['topics']['finish_client']
 client_done = config['topics']['client_done']
 system_runs = config['system_details']['different_runs']
 run_repetitions = config['system_details']['run_repetitions']
+queue_size = config['system_details']['queue_size']
+tcp_delay = config['system_details']['tcp_delay']
 message_details = config['system_details']['message_details']
 dumpcap_enabled = config['dumpcap']['enable']
 dumpcap_folder = str(config['dumpcap']['folder']).replace("#", client_id)
@@ -76,6 +82,30 @@ class MQTT_Server:
         self.main_logger.addHandler(stdout_handler)
         # self.timestamp_logger.addHandler(stdout_handler)
 
+    # As some of the variable parameters are from the Mosquitto configuration itself, the server is responsible for automatically updating
+    # the Mosquitto configuration and launching the Mosquitto service with the Subproces module
+    def launch_mosquitto(self):
+        # Reads the Mosquitto configuration file into a string and changes two variables:
+        # - max_queued_messages -> sets the queue size for QoS 1 and 2 messages per client to be processed, dropping messages when the queue is exceeded
+        # - set_tcp_nodelay -> whether or not to use Nagle's algorithm for latency reduction at the exchange of an increased packet count
+        self.main_logger.info(f"Reading Mosquitto configuration file")
+        with open(mosquitto_conf, "r+") as config_file:
+            config_data = config_file.read()
+            config_data = re.sub("max_queued_messages \d", f"max_queued_messages {queue_size}", config_data)
+            config_data = re.sub("set_tcp_nodelay \d", f"set_tcp_nodelay {tcp_delay}", config_data)
+            self.main_logger.info(f"Max queue size per client: {queue_size} messages")
+            self.main_logger.info(f"Using TCP no delay algorithm: {bool(tcp_delay)}")
+            config_file.seek(0)
+            config_file.truncate()
+            config_file.write(config_data)
+            config_file.close()
+            self.main_logger.info(f"Mosquitto configuration file updated")
+        self.main_logger
+        # Using the Subprocess module, starts the Mosquitto service with the updated configuration file
+        self.main_logger.info(f"Launching Mosquitto service")
+        mosquitto_call = ["mosquitto", "-v", "-c", mosquitto_conf]
+        self.mosquitto_process = subprocess.Popen(mosquitto_call, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    
     # Callback for when the client object successfully connects to the broker with specified address
     def on_connect(self, client, userdata, flags, rc):
         if rc==0:
@@ -373,6 +403,9 @@ class MQTT_Server:
             self.client.unsubscribe(main_topic)
             self.client.unsubscribe(client_done)
             self.client.disconnect()
+        # Manually closes the Mosquitto service to not leave it hanging and blocking the port for future runs
+        self.main_logger.info(f"Closing Mosquitto service")
+        self.mosquitto_process.terminate()
 
     # Starts the server class with all the variables necessary
     def __init__(self):
@@ -382,6 +415,8 @@ class MQTT_Server:
         self.logger_setup()
         self.main_logger.info(f"==================================================")
         self.main_logger.info(f"NEW SYSTEM EXECUTION")
+        # Arranges the Mosquitto configuration file with the correct parameters, and launches the service
+        self.launch_mosquitto()
         # Declares the thread where the system handler will run. This only has to be done once per system execution
         self.sys_thread = threading.Thread(target = self.sys_handler, args=())
         self.main_logger.info(f"Creating MQTT Client with ID {client_id}")

@@ -15,6 +15,8 @@
     "system_details":{
         "different_runs": 1,
         "run_repetitions": 15,
+        "queue_size": 100,
+        "tcp_delay": 1,
         "message_details":{
             "client_amount": 10,
             "msg_qos": 1,
@@ -25,7 +27,7 @@
     },
     "rtx_times": [10,15,20],
     "dumpcap":{
-        "enable": true,
+        "enable": false,
         "folder": "dumpcap/#/*C/",
         "filter": "tcp port 1883",
         "extension": ".pcap",

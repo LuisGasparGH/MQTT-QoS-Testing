@@ -5,6 +5,7 @@ import datetime
 import json
 import logging
 import sys
+import netifaces
 import threading
 import os
 import pause
@@ -20,8 +21,9 @@ with open("conf/config.json", "r") as config_file:
     config = json.load(config_file)
 
 # Stores all static variables needed from the configuration dictionary, adapted to the client
-# Also gathers the client-id from the input arguments, to be used in the MQTT client
-client_number = int(sys.argv[1])
+# Also calculates the client-id using the local IP address of the Ethernet network adapter, to be used in the MQTT client
+dumpcap_interface = config['dumpcap']['interface']['client']
+client_number = int(netifaces.ifaddresses(dumpcap_interface)[netifaces.AF_INET][0]['addr'][-1])
 client_id = "client-"+ str(client_number)
 log_folder = str(config['logging']['folder']).replace("#", client_id)
 main_logger = config['logging']['main']
@@ -37,7 +39,6 @@ dumpcap_folder = str(config['dumpcap']['folder']).replace("#", client_id)
 dumpcap_filter = config['dumpcap']['filter']
 dumpcap_ext = config['dumpcap']['extension']
 dumpcap_buffer = config['dumpcap']['buffer_size']
-dumpcap_interface = config['dumpcap']['interface']['client']
 rtx_times = config['rtx_times']
 
 # Class of the MQTT client code
