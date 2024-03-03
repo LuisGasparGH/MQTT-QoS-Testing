@@ -105,6 +105,7 @@ class MQTT_Server:
         self.main_logger.info(f"Launching Mosquitto service")
         mosquitto_call = ["mosquitto", "-v", "-c", mosquitto_conf]
         self.mosquitto_process = subprocess.Popen(mosquitto_call, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        self.mosquitto_launched = True
     
     # Callback for when the client object successfully connects to the broker with specified address
     def on_connect(self, client, userdata, flags, rc):
@@ -119,6 +120,7 @@ class MQTT_Server:
             self.main_logger.info(f"Subscribed to {client_done} topic with QoS 0")
             self.client.subscribe(void_run, qos=0)
             self.main_logger.info(f"Subscribed to {void_run} topic with QoS 0")
+            time.sleep(30)
             self.sys_thread.start()
         else:
             # In case of error during connection the log will contain the error code for debugging
@@ -416,6 +418,7 @@ class MQTT_Server:
         self.main_logger.info(f"==================================================")
         self.main_logger.info(f"NEW SYSTEM EXECUTION")
         # Arranges the Mosquitto configuration file with the correct parameters, and launches the service
+        self.mosquitto_launched = False
         self.launch_mosquitto()
         # Declares the thread where the system handler will run. This only has to be done once per system execution
         self.sys_thread = threading.Thread(target = self.sys_handler, args=())
@@ -440,6 +443,8 @@ class MQTT_Server:
         self.client.message_callback_add(void_run, self.on_voidrun)
         # The MQTT client connects to the broker and the network loop iterates forever until the cleanup function
         # The keep alive is set to 3 hours
+        while self.mosquitto_launched == False:
+            time.sleep(5)
         self.client.connect(broker_address, 1883, 60)
         self.client.loop_forever()
 

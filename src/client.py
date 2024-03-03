@@ -305,6 +305,7 @@ class MQTT_Client:
         self.client.message_callback_add(void_run, self.on_voidrun)
         # The MQTT client connects to the broker and the network loop iterates forever until the cleanup function
         # The keepalive is set to 3 hours, to try and avoid the ping messages to appear on the capture files
+        time.sleep(15)
         self.client.connect(broker_address, 1883, 60)
         self.client.loop_forever()
 

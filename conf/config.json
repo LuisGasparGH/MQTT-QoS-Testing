@@ -14,18 +14,18 @@
     },
     "system_details":{
         "different_runs": 1,
-        "run_repetitions": 15,
-        "queue_size": 100,
+        "run_repetitions": 5,
+        "queue_size": 1000,
         "tcp_delay": 1,
         "message_details":{
             "client_amount": 10,
-            "msg_qos": 1,
+            "msg_qos": 2,
             "msg_amount": 1000,
-            "msg_size": 250000,
-            "msg_freq": 25
+            "msg_size": 125000,
+            "msg_freq": 50
         }
     },
-    "rtx_times": [10,15,20],
+    "rtx_times": [30,60,90],
     "dumpcap":{
         "enable": false,
         "folder": "dumpcap/#/*C/",
