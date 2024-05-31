@@ -91,7 +91,7 @@ class MQTT_Server:
         self.main_logger.info(f"Reading Mosquitto configuration file")
         with open(mosquitto_conf, "r+") as config_file:
             config_data = config_file.read()
-            config_data = re.sub("max_queued_messages \d", f"max_queued_messages {queue_size}", config_data)
+            config_data = re.sub("max_queued_messages \d+", f"max_queued_messages {queue_size}", config_data)
             config_data = re.sub("set_tcp_nodelay \d", f"set_tcp_nodelay {tcp_delay}", config_data)
             self.main_logger.info(f"Max queue size per client: {queue_size} messages")
             self.main_logger.info(f"Using TCP no delay algorithm: {bool(tcp_delay)}")
@@ -100,7 +100,6 @@ class MQTT_Server:
             config_file.write(config_data)
             config_file.close()
             self.main_logger.info(f"Mosquitto configuration file updated")
-        self.main_logger
         # Using the Subprocess module, starts the Mosquitto service with the updated configuration file
         self.main_logger.info(f"Launching Mosquitto service")
         mosquitto_call = ["mosquitto", "-v", "-c", mosquitto_conf]
