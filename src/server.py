@@ -130,6 +130,7 @@ class MQTT_Server:
     # Callback for when the client object successfully disconnects from the broker
     def on_disconnect(self, client, userdata, rc):
         self.mqtt_connected = False
+        self.sys_thread.join()
         if rc==0:
             self.main_logger.info(f"Disconnected from broker at {broker_address}")
         else:
@@ -277,7 +278,7 @@ class MQTT_Server:
         else:
             # The config file has a parameter with the amount of system runs to be performed, which will be iterated in here
             # However, to get a statistically relevant average, every different configuration is ran 10 times
-            for run in range(system_runs):
+            for run in range(self.current_run, system_runs):
                 rep = 0
                 # Generates an unique UUID for every different run, for easier identification in the logs
                 self.run_uuid = str(uuid.uuid4())
@@ -386,6 +387,7 @@ class MQTT_Server:
                         self.main_logger.info(f"Deleting Dumpcap capture file of current run due to being void")
                     if dumpcap_enabled is True:
                         os.remove(self.dumpcap_file)
+                self.current_run += 1
             # Once all runs are finished, cleans up everything and exits
             self.cleanup()
     
@@ -424,6 +426,7 @@ class MQTT_Server:
         self.main_logger.info(f"Creating MQTT Client with ID {client_id}")
         # Starts the MQTT client with specified ID, passed through the input arguments, and defines all callbacks
         self.mqtt_connected = False
+        self.current_run = 0
         self.void_run = False
         self.client = mqtt.Client(client_id=client_id)
         self.client.on_connect = self.on_connect
