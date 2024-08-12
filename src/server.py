@@ -48,6 +48,11 @@ dumpcap_buffer = config['dumpcap']['buffer_size']
 dumpcap_interface = config['dumpcap']['interface']['server']
 rtx_times = config['rtx_times']
 
+# Gathers current GMT/UTC datetime in string format, to append to the logger file name
+# This will allow distinction between different runs, as well as make it easy to locate the parity between client and server
+# logs, as the datetime obtained on both will be identical
+append_time = datetime.datetime.utcnow().strftime('%d-%m-%Y_%H-%M-%S')
+
 # Class of the MQTT server code
 class MQTT_Server:
     # Configures all the loggers to log and store every execution detail in appropriate files for future analysis
@@ -55,10 +60,6 @@ class MQTT_Server:
     # main_logger - used for all normal execution logging, regarding execution information and results reporting
     # timestamp_logger - used to have an output of all timestamps of messages received from the broker
     def logger_setup(self):
-        # Gathers current GMT/UTC datetime in string format, to append to the logger file name
-        # This will allow distinction between different runs, as well as make it easy to locate the parity between client and server
-        # logs, as the datetime obtained on both will be identical
-        append_time = datetime.datetime.utcnow().strftime('%d-%m-%Y_%H-%M-%S')
         # Setup of the formatter for the loggers, to display time, levelname and message, and converts logger timezone to GMT as well
         formatter = logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s')
         formatter.converter = time.gmtime
@@ -85,14 +86,17 @@ class MQTT_Server:
     # As some of the variable parameters are from the Mosquitto configuration itself, the server is responsible for automatically updating
     # the Mosquitto configuration and launching the Mosquitto service with the Subproces module
     def launch_mosquitto(self):
-        # Reads the Mosquitto configuration file into a string and changes two variables:
+        # Reads the Mosquitto configuration file into a string and changes three variables:
+        # - log_dest -> sets the Mosquitto log destination to a file, associated with a start timestamp
         # - max_queued_messages -> sets the queue size for QoS 1 and 2 messages per client to be processed, dropping messages when the queue is exceeded
         # - set_tcp_nodelay -> whether or not to use Nagle's algorithm for latency reduction at the exchange of an increased packet count
         self.main_logger.info(f"Reading Mosquitto configuration file")
         with open(mosquitto_conf, "r+") as config_file:
             config_data = config_file.read()
-            config_data = re.sub("max_queued_messages \d+", f"max_queued_messages {queue_size}", config_data)
-            config_data = re.sub("set_tcp_nodelay \d", f"set_tcp_nodelay {tcp_delay}", config_data)
+            config_data = re.sub("log_dest file .+", f"log_dest file {log_folder.replace("server", "mosquitto")}mosquitto-T{append_time}.log", config_data)
+            config_data = re.sub("max_queued_messages .+", f"max_queued_messages {queue_size}", config_data)
+            config_data = re.sub("set_tcp_nodelay .+", f"set_tcp_nodelay {tcp_delay}", config_data)
+            self.main_logger.info(f"Mosquitto log file: {log_folder.replace('server', 'mosquitto')}mosquitto-T{append_time}.log")
             self.main_logger.info(f"Max queue size per client: {queue_size} messages")
             self.main_logger.info(f"Using TCP no delay algorithm: {bool(tcp_delay)}")
             config_file.seek(0)

@@ -27,7 +27,7 @@
     },
     "rtx_times": [30,60,90],
     "dumpcap":{
-        "enable": false,
+        "enable": true,
         "folder": "dumpcap/#/*C/",
         "filter": "tcp port 1883",
         "extension": ".pcap",
