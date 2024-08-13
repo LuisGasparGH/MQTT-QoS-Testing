@@ -91,6 +91,7 @@ class MQTT_Client:
             self.main_logger.info(f"Subscribed to {finish_client} topic with QoS 0")
             self.client.subscribe(void_run, qos=0)
             self.main_logger.info(f"Subscribed to {void_run} topic with QoS 0")
+            # If the client reconnects to the broker, it sends a void run message to all clients and the server, which allows this run to be discarded
             if self.connect_count > 1:
                 self.main_logger.warning(f"Client reconnected to broker, telling server to void current run")
                 self.client.publish(void_run, payload=client_id, qos=0)
@@ -212,6 +213,7 @@ class MQTT_Client:
         # When a run is void, the other clients receive that indication as well, to ignore the results and delete the capture file
         self.main_logger.warning(f"One of the clients has reconnected to the broker, voiding current run when finished")
         self.void_run = True
+    
     # Cleanup function, used to gracefully clean everything MQTT related, using the previously mentioned connected flag
     def cleanup(self):
         # Removes all added callbacks, and in case the client is connected, unsubscribes from the topics and disconnects
