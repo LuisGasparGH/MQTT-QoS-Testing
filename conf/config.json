@@ -4,7 +4,7 @@
         "main": "main-logger",
         "timestamp": "timestamp-logger"
     },
-    "broker_address": "broker",
+    "broker_address": "192.168.2.3",
     "topics":{
         "main_topic": "mqtt_qos/main_topic/#",
         "begin_client": "mqtt_qos/begin_client",
@@ -14,15 +14,21 @@
     },
     "system_details":{
         "different_runs": 1,
-        "run_repetitions": 5,
+        "run_repetitions": 10,
         "queue_size": 1000,
         "tcp_delay": 1,
         "message_details":{
             "client_amount": 10,
-            "msg_qos": 2,
+            "msg_qos": [0,0,0,0,0,0,
+                        1,1,1,1,1,1,
+                        2,2,2,2,2,2],
             "msg_amount": 1000,
-            "msg_size": 125000,
-            "msg_freq": 50
+            "msg_size": [1250,1250,12500,12500,125000,125000,
+                         1250,1250,12500,12500,125000,125000,
+                         1250,1250,12500,12500,125000,125000],
+            "msg_freq": [25,50,25,50,25,50,
+                         25,50,25,50,25,50,
+                         25,50,25,50,25,50]
         }
     },
     "rtx_times": [30,60,90],
@@ -34,7 +40,7 @@
         "buffer_size": 1024,
         "interface":{
             "client": "eth0",
-            "server": "eno1"
+            "server": "enp1s0"
         }
     }
 }

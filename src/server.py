@@ -27,6 +27,7 @@ with open(system_conf, "r") as config_file:
 # Also gathers the client-id from the input arguments, to be used in the MQTT client
 client_id = "server"
 log_folder = str(config['logging']['folder']).replace("#", client_id)
+mosquitto_folder = str(log_folder).replace("server", "mosquitto")
 main_logger = config['logging']['main']
 timestamp_logger = config['logging']['timestamp']
 broker_address = config['broker_address']
@@ -93,7 +94,7 @@ class MQTT_Server:
         self.main_logger.info(f"Reading Mosquitto configuration file")
         with open(mosquitto_conf, "r+") as config_file:
             config_data = config_file.read()
-            config_data = re.sub("log_dest file .+", f"log_dest file {log_folder.replace("server", "mosquitto")}mosquitto-T{append_time}.log", config_data)
+            config_data = re.sub("log_dest file .+", f"log_dest file {mosquitto_folder}mosquitto-T{append_time}.log", config_data)
             config_data = re.sub("max_queued_messages .+", f"max_queued_messages {queue_size}", config_data)
             config_data = re.sub("set_tcp_nodelay .+", f"set_tcp_nodelay {tcp_delay}", config_data)
             self.main_logger.info(f"Mosquitto log file: {log_folder.replace('server', 'mosquitto')}mosquitto-T{append_time}.log")
@@ -124,10 +125,10 @@ class MQTT_Server:
             self.main_logger.info(f"Subscribed to {client_done} topic with QoS 0")
             self.client.subscribe(void_run, qos=0)
             self.main_logger.info(f"Subscribed to {void_run} topic with QoS 0")
-            if self.connect == 1:
+            if self.connect_count == 1:
                 time.sleep(30)
                 self.sys_thread.start()
-            elif self.connect > 1:
+            elif self.connect_count > 1:
                 # If the server reconnects to the broker, it sends a void run message to all clients, including itself, and marks run as finished
                 # The reason this happens is to avoid a deadlock when the server reconnects during the period when clients are sending the client done messages,
                 # and the server never collects them all, thus never finishing the run
@@ -426,6 +427,7 @@ class MQTT_Server:
     def __init__(self):
         # Creates the logs folder in case it doesn't exist
         os.makedirs(log_folder, exist_ok=True)
+        os.makedirs(mosquitto_folder, exist_ok=True)
         # Performs the logger setup
         self.logger_setup()
         self.main_logger.info(f"==================================================")
