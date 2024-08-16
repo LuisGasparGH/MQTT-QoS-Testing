@@ -109,6 +109,8 @@ class MQTT_Server:
         self.main_logger.info(f"Launching Mosquitto service")
         mosquitto_call = ["mosquitto", "-v", "-c", mosquitto_conf]
         self.mosquitto_process = subprocess.Popen(mosquitto_call, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Small 3 second wait to guarantee broker is up and running before the server tries to connect to it
+        time.sleep(3)
         self.mosquitto_launched = True
     
     # Callback for when the client object successfully connects to the broker with specified address
@@ -379,6 +381,7 @@ class MQTT_Server:
                         self.dumpcap_subprocess = subprocess.Popen(dumpcap_call, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     # While the run is not finished, the thread waits and periodically checks if the run has ended
                     while self.run_finished == False:
+                        self.main_logger.info(f"Broker subprocess status (None is running): {self.mosquitto_process.poll()}")
                         time.sleep(10)
                     if self.void_run == False:
                         # Once the run is ended, all results are calculated and logged
