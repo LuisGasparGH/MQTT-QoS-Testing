@@ -212,6 +212,7 @@ class MQTT_Client:
         # When a run is void, the other clients receive that indication as well, to ignore the results and delete the capture file
         self.main_logger.warning(f"One of the clients has reconnected to the broker, voiding current run when finished")
         self.void_run = True
+    
     # Cleanup function, used to gracefully clean everything MQTT related, using the previously mentioned connected flag
     def cleanup(self):
         # Removes all added callbacks, and in case the client is connected, unsubscribes from the topics and disconnects
