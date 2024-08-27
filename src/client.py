@@ -91,6 +91,7 @@ class MQTT_Client:
             self.main_logger.info(f"Subscribed to {finish_client} topic with QoS 0")
             self.client.subscribe(void_run, qos=0)
             self.main_logger.info(f"Subscribed to {void_run} topic with QoS 0")
+            # If the client reconnects to the broker, it sends a void run message to all clients and the server, which allows this run to be discarded
             if self.connect_count > 1:
                 self.main_logger.warning(f"Client reconnected to broker, telling server to void current run")
                 self.client.publish(void_run, payload=client_id, qos=0)

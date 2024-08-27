@@ -27,6 +27,7 @@ with open(system_conf, "r") as config_file:
 # Also gathers the client-id from the input arguments, to be used in the MQTT client
 client_id = "server"
 log_folder = str(config['logging']['folder']).replace("#", client_id)
+mosquitto_folder = str(log_folder).replace("server", "mosquitto")
 main_logger = config['logging']['main']
 timestamp_logger = config['logging']['timestamp']
 broker_address = config['broker_address']
@@ -93,7 +94,7 @@ class MQTT_Server:
         self.main_logger.info(f"Reading Mosquitto configuration file")
         with open(mosquitto_conf, "r+") as config_file:
             config_data = config_file.read()
-            config_data = re.sub("log_dest file .+", f"log_dest file {log_folder.replace("server", "mosquitto")}mosquitto-T{append_time}.log", config_data)
+            config_data = re.sub("log_dest file .+", f"log_dest file {mosquitto_folder}mosquitto-T{append_time}.log", config_data)
             config_data = re.sub("max_queued_messages .+", f"max_queued_messages {queue_size}", config_data)
             config_data = re.sub("set_tcp_nodelay .+", f"set_tcp_nodelay {tcp_delay}", config_data)
             self.main_logger.info(f"Mosquitto log file: {log_folder.replace('server', 'mosquitto')}mosquitto-T{append_time}.log")
@@ -108,6 +109,8 @@ class MQTT_Server:
         self.main_logger.info(f"Launching Mosquitto service")
         mosquitto_call = ["mosquitto", "-v", "-c", mosquitto_conf]
         self.mosquitto_process = subprocess.Popen(mosquitto_call, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Small 3 second wait to guarantee broker is up and running before the server tries to connect to it
+        time.sleep(3)
         self.mosquitto_launched = True
     
     # Callback for when the client object successfully connects to the broker with specified address
@@ -118,13 +121,22 @@ class MQTT_Server:
             # - subscribes to the client_done topic
             # - starts the system handler thread
             self.mqtt_connected = True
+            self.connect_count += 1
             self.main_logger.info(f"Connected to the broker at {broker_address}")
             self.client.subscribe(client_done, qos=0)
             self.main_logger.info(f"Subscribed to {client_done} topic with QoS 0")
             self.client.subscribe(void_run, qos=0)
             self.main_logger.info(f"Subscribed to {void_run} topic with QoS 0")
-            time.sleep(30)
-            self.sys_thread.start()
+            if self.connect_count == 1:
+                time.sleep(30)
+                self.sys_thread.start()
+            elif self.connect_count > 1:
+                # If the server reconnects to the broker, it sends a void run message to all clients, including itself, and marks run as finished
+                # The reason this happens is to avoid a deadlock when the server reconnects during the period when clients are sending the client done messages,
+                # and the server never collects them all, thus never finishing the run
+                self.main_logger.info(f"Server reconnected to broker, voiding current run and informing clients")
+                self.client.publish(void_run, payload=client_id, qos=0)
+                self.run_finished = True
         else:
             # In case of error during connection the log will contain the error code for debugging
             self.main_logger.info(f"Error connecting to broker, with code {rc}")
@@ -134,7 +146,6 @@ class MQTT_Server:
     # Callback for when the client object successfully disconnects from the broker
     def on_disconnect(self, client, userdata, rc):
         self.mqtt_connected = False
-        self.sys_thread.join()
         if rc==0:
             self.main_logger.info(f"Disconnected from broker at {broker_address}")
         else:
@@ -370,6 +381,7 @@ class MQTT_Server:
                         self.dumpcap_subprocess = subprocess.Popen(dumpcap_call, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     # While the run is not finished, the thread waits and periodically checks if the run has ended
                     while self.run_finished == False:
+                        self.main_logger.info(f"Broker subprocess status (None is running): {self.mosquitto_process.poll()}")
                         time.sleep(10)
                     if self.void_run == False:
                         # Once the run is ended, all results are calculated and logged
@@ -418,6 +430,7 @@ class MQTT_Server:
     def __init__(self):
         # Creates the logs folder in case it doesn't exist
         os.makedirs(log_folder, exist_ok=True)
+        os.makedirs(mosquitto_folder, exist_ok=True)
         # Performs the logger setup
         self.logger_setup()
         self.main_logger.info(f"==================================================")
@@ -430,6 +443,7 @@ class MQTT_Server:
         self.main_logger.info(f"Creating MQTT Client with ID {client_id}")
         # Starts the MQTT client with specified ID, passed through the input arguments, and defines all callbacks
         self.mqtt_connected = False
+        self.connect_count = 0
         self.current_run = 0
         self.void_run = False
         self.client = mqtt.Client(client_id=client_id)
