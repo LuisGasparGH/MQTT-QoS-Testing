@@ -204,6 +204,7 @@ class MQTT_Client:
 
     # Callback for when the client receives a message on the topic finish client
     def on_finishclient(self, client, userdata, msg):
+        self.finished = True
         self.main_logger.info(f"==================================================")
         self.main_logger.info(f"End order received from the server using topic {str(msg.topic)}")
         self.cleanup()
@@ -294,22 +295,25 @@ class MQTT_Client:
         self.logger_setup()
         self.main_logger.info(f"==================================================")
         self.main_logger.info(f"NEW SYSTEM EXECUTION")
-        self.main_logger.info(f"Creating MQTT Client with ID {client_id}")
-        # Starts the MQTT client with specified client ID, passed through the input arguments, and defines all callbacks
+        self.finished = False
         self.mqtt_connected = False
-        self.connect_count = 0
-        self.client = mqtt.Client(client_id=client_id)
-        self.client.on_connect = self.on_connect
-        self.client.on_disconnect = self.on_disconnect
-        self.client.on_publish = self.on_publish
-        self.client.message_callback_add(begin_client, self.on_beginclient)
-        self.client.message_callback_add(finish_client, self.on_finishclient)
-        self.client.message_callback_add(void_run, self.on_voidrun)
-        # The MQTT client connects to the broker and the network loop iterates forever until the cleanup function
-        # The keepalive is set to 3 hours, to try and avoid the ping messages to appear on the capture files
-        time.sleep(15)
-        self.client.connect(broker_address, 1883, 60)
-        self.client.loop_forever()
+        self.void_run = False
+        while self.finished is False:
+            # Starts the MQTT client with specified client ID, passed through the input arguments, and defines all callbacks
+            self.main_logger.info(f"Creating MQTT Client with ID {client_id}")
+            self.client = mqtt.Client(client_id=client_id)
+            self.client.on_connect = self.on_connect
+            self.client.on_disconnect = self.on_disconnect
+            self.client.on_publish = self.on_publish
+            self.client.message_callback_add(begin_client, self.on_beginclient)
+            self.client.message_callback_add(finish_client, self.on_finishclient)
+            self.client.message_callback_add(void_run, self.on_voidrun)
+            # The MQTT client connects to the broker and the network loop iterates forever until the cleanup function
+            # The keep alive is set to 1 minute
+            time.sleep(15)
+            self.connect_count = 0
+            self.client.connect(broker_address, 1883, 60)
+            self.client.loop_forever()
 
 # Starts one MQTT Client class object
 # Small exception handler in case the user decides to use Ctrl-C to finish the program mid execution
