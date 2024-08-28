@@ -221,7 +221,7 @@ class MQTT_Server:
     #Callback for when the server receives a message on the void run topic
     def on_voidrun(self, client, userdata, msg):
         # In case a client has a sudden reconnection to the broker, the run is void and repeated, in order to not halt progress
-        self.main_logger.warning(f"{msg.payload.decode('utf-8')} reconnected to the broker, voiding current run when finished")
+        self.main_logger.warning(f"{msg.payload.decode('utf-8')} reconnected to the broker, voiding current run")
         self.void_run = True
     
     # Result logging function, used to calculate and output every relevant metric and result to the logger once a run is complete
@@ -383,7 +383,7 @@ class MQTT_Server:
                                         "-a", f"duration:{sniff_duration}", "-B", str(dumpcap_buffer), "-w", self.dumpcap_file]
                         self.dumpcap_subprocess = subprocess.Popen(dumpcap_call, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     # While the run is not finished, the thread waits and periodically checks if the run has ended
-                    while self.run_finished == False:
+                    while self.run_finished == False and self.void_run == False:
                         self.broker_running = self.mosquitto_process.poll() is None
                         self.main_logger.info(f"Broker running: {self.broker_running}")
                         if self.broker_running is False:

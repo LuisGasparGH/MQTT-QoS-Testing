@@ -212,7 +212,7 @@ class MQTT_Client:
     # Callback for when the client receives a message on the void run topic
     def on_voidrun(self, client, userdata, msg):
         # When a run is void, the other clients receive that indication as well, to ignore the results and delete the capture file
-        self.main_logger.warning(f"One of the clients has reconnected to the broker, voiding current run when finished")
+        self.main_logger.warning(f"One of the clients has reconnected to the broker, voiding current run")
         self.void_run = True
     
     # Cleanup function, used to gracefully clean everything MQTT related, using the previously mentioned connected flag
@@ -245,14 +245,15 @@ class MQTT_Client:
         deadline = datetime.datetime.now()
         # A cycle is iterated as many times as messages that need to be published in this run
         for msg in range(self.msg_amount):
-            # Updates the deadline of this iteration start with a current datetime object
-            deadline += datetime.timedelta(microseconds=(self.sleep_time))
-            # MQTT client publishes the messages to the main topic, with the built payload and correct QoS
-            payload = bytearray(self.msg_size-2)
-            payload.extend(msg.to_bytes(length=2, byteorder='big'))
-            self.client.publish(main_topic, payload, qos=self.msg_qos)
-            # Pauses the thread until the deadline specified is met
-            pause.until(deadline)
+            if self.void_run == False:
+                # Updates the deadline of this iteration start with a current datetime object
+                deadline += datetime.timedelta(microseconds=(self.sleep_time))
+                # MQTT client publishes the messages to the main topic, with the built payload and correct QoS
+                payload = bytearray(self.msg_size-2)
+                payload.extend(msg.to_bytes(length=2, byteorder='big'))
+                self.client.publish(main_topic, payload, qos=self.msg_qos)
+                # Pauses the thread until the deadline specified is met
+                pause.until(deadline)
         # Once the iteration is complete, simply waits for MQTT client that all messages have been sent, before proceeding to the next step
         while (self.pub_complete != True) and (self.void_run != True):
             time.sleep(2.5)
@@ -284,8 +285,9 @@ class MQTT_Client:
             os.remove(self.dumpcap_file)
         # At least, the client has to inform the server that it has finished publishing messages for this run
         # This is done by sending a None payload to the client done topic
-        self.client.publish(client_done, None, qos=0)
-        self.main_logger.info(f"Informed server that client is finished")
+        if self.void_run == False:
+            self.client.publish(client_done, None, qos=0)
+            self.main_logger.info(f"Informed server that client is finished")
 
     # Starts the client class with all the variables necessary
     def __init__(self):
