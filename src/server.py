@@ -52,7 +52,7 @@ rtx_times = config['rtx_times']
 # Gathers current GMT/UTC datetime in string format, to append to the logger file name
 # This will allow distinction between different runs, as well as make it easy to locate the parity between client and server
 # logs, as the datetime obtained on both will be identical
-append_time = datetime.datetime.utcnow().strftime('%d-%m-%Y_%H-%M-%S')
+append_time = datetime.datetime.now(datetime.UTC).strftime('%d-%m-%Y_%H-%M-%S')
 
 # Class of the MQTT server code
 class MQTT_Server:
@@ -106,12 +106,17 @@ class MQTT_Server:
             config_file.close()
             self.main_logger.info(f"Mosquitto configuration file updated")
         # Using the Subprocess module, starts the Mosquitto service with the updated configuration file
-        self.main_logger.info(f"Launching Mosquitto service")
+        self.main_logger.info(f"Launching Mosquitto broker")
         mosquitto_call = ["mosquitto", "-v", "-c", mosquitto_conf]
         self.mosquitto_process = subprocess.Popen(mosquitto_call, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         # Small 3 second wait to guarantee broker is up and running before the server tries to connect to it
         time.sleep(3)
-        self.mosquitto_launched = True
+        self.broker_running = self.mosquitto_process.poll() is None
+        if self.broker_running:
+            self.main_logger.info(f"Mosquitto broker successfully launched")
+        else:
+            self.main_logger.error(f"Problem launching Mosquitto broker, exiting script")
+            raise(KeyboardInterrupt)
     
     # Callback for when the client object successfully connects to the broker with specified address
     def on_connect(self, client, userdata, flags, rc):
@@ -140,8 +145,6 @@ class MQTT_Server:
         else:
             # In case of error during connection the log will contain the error code for debugging
             self.main_logger.info(f"Error connecting to broker, with code {rc}")
-
-        # Callback for when the client object successfully disconnects from the broker
     
     # Callback for when the client object successfully disconnects from the broker
     def on_disconnect(self, client, userdata, rc):
@@ -156,52 +159,52 @@ class MQTT_Server:
     def on_maintopic_c0(self, client, userdata, msg):
         # For every message received, increases the counter slot for the specific client, and logs the received datetime
         self.run_client_received[0] += 1
-        self.run_client_timestamps[0].append(datetime.datetime.utcnow())
+        self.run_client_timestamps[0].append(datetime.datetime.now(datetime.UTC))
         self.timestamp_logger.info(f"Received message #{self.run_client_received[0]} from the {msg.topic} topic")
     
     def on_maintopic_c1(self, client, userdata, msg):
         self.run_client_received[1] += 1
-        self.run_client_timestamps[1].append(datetime.datetime.utcnow())
+        self.run_client_timestamps[1].append(datetime.datetime.now(datetime.UTC))
         self.timestamp_logger.info(f"Received message #{self.run_client_received[1]} from the {msg.topic} topic")
     
     def on_maintopic_c2(self, client, userdata, msg):
         self.run_client_received[2] += 1
-        self.run_client_timestamps[2].append(datetime.datetime.utcnow())
+        self.run_client_timestamps[2].append(datetime.datetime.now(datetime.UTC))
         self.timestamp_logger.info(f"Received message #{self.run_client_received[2]} from the {msg.topic} topic")
     
     def on_maintopic_c3(self, client, userdata, msg):
         self.run_client_received[3] += 1
-        self.run_client_timestamps[3].append(datetime.datetime.utcnow())
+        self.run_client_timestamps[3].append(datetime.datetime.now(datetime.UTC))
         self.timestamp_logger.info(f"Received message #{self.run_client_received[3]} from the {msg.topic} topic")
     
     def on_maintopic_c4(self, client, userdata, msg):
         self.run_client_received[4] += 1
-        self.run_client_timestamps[4].append(datetime.datetime.utcnow())
+        self.run_client_timestamps[4].append(datetime.datetime.now(datetime.UTC))
         self.timestamp_logger.info(f"Received message #{self.run_client_received[4]} from the {msg.topic} topic")
     
     def on_maintopic_c5(self, client, userdata, msg):
         self.run_client_received[5] += 1
-        self.run_client_timestamps[5].append(datetime.datetime.utcnow())
+        self.run_client_timestamps[5].append(datetime.datetime.now(datetime.UTC))
         self.timestamp_logger.info(f"Received message #{self.run_client_received[5]} from the {msg.topic} topic")
     
     def on_maintopic_c6(self, client, userdata, msg):
         self.run_client_received[6] += 1
-        self.run_client_timestamps[6].append(datetime.datetime.utcnow())
+        self.run_client_timestamps[6].append(datetime.datetime.now(datetime.UTC))
         self.timestamp_logger.info(f"Received message #{self.run_client_received[6]} from the {msg.topic} topic")
     
     def on_maintopic_c7(self, client, userdata, msg):
         self.run_client_received[7] += 1
-        self.run_client_timestamps[7].append(datetime.datetime.utcnow())
+        self.run_client_timestamps[7].append(datetime.datetime.now(datetime.UTC))
         self.timestamp_logger.info(f"Received message #{self.run_client_received[7]} from the {msg.topic} topic")
     
     def on_maintopic_c8(self, client, userdata, msg):
         self.run_client_received[8] += 1
-        self.run_client_timestamps[8].append(datetime.datetime.utcnow())
+        self.run_client_timestamps[8].append(datetime.datetime.now(datetime.UTC))
         self.timestamp_logger.info(f"Received message #{self.run_client_received[8]} from the {msg.topic} topic")
     
     def on_maintopic_c9(self, client, userdata, msg):
         self.run_client_received[9] += 1
-        self.run_client_timestamps[9].append(datetime.datetime.utcnow())
+        self.run_client_timestamps[9].append(datetime.datetime.now(datetime.UTC))
         self.timestamp_logger.info(f"Received message #{self.run_client_received[9]} from the {msg.topic} topic")
     
     # Callback for when the server receives a message on the client done topic
@@ -348,7 +351,7 @@ class MQTT_Server:
                         self.zip_file =  self.basename + "-U" + self.run_uuid + ".zip"
                         # For the capture file, an additional run repetition and timestamp string is added, like in the loggers, to differentiate between runs
                         # Files for runs with the exact same configuration (due to the fact that each configuration is ran multiple times to obtain an average) go into the same zip file
-                        self.dumpcap_file = self.basename + "-R" + str(rep+1) + "-T" + str(datetime.datetime.utcnow().strftime('%d-%m-%Y_%H-%M-%S')) + dumpcap_ext
+                        self.dumpcap_file = self.basename + "-R" + str(rep+1) + "-T" + str(datetime.datetime.now(datetime.UTC).strftime('%d-%m-%Y_%H-%M-%S')) + dumpcap_ext
                     # Subscribes to the message topic with the correct QoS to be used in the run, and logs all the information of the run
                     self.client.subscribe(main_topic, qos=self.run_msg_qos)
                     self.main_logger.info(f"Subscribed to {main_topic} topic with QoS level {self.run_msg_qos}")
@@ -381,7 +384,16 @@ class MQTT_Server:
                         self.dumpcap_subprocess = subprocess.Popen(dumpcap_call, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     # While the run is not finished, the thread waits and periodically checks if the run has ended
                     while self.run_finished == False:
-                        self.main_logger.info(f"Broker subprocess status (None is running): {self.mosquitto_process.poll()}")
+                        self.broker_running = self.mosquitto_process.poll() is None
+                        self.main_logger.info(f"Broker running: {self.broker_running}")
+                        if self.broker_running is False:
+                            self.main_logger.error(f"Broker has stopped running, restarting execution from beggining of latest run")
+                            if dumpcap_enabled is True:
+                                self.dumpcap_subprocess.terminate()
+                                self.main_logger.info(f"Deleting Dumpcap capture file of current run due to broker stopping")
+                                os.remove(self.dumpcap_file)
+                            self.cleanup()
+                            sys.exit()
                         time.sleep(10)
                     if self.void_run == False:
                         # Once the run is ended, all results are calculated and logged
@@ -405,6 +417,7 @@ class MQTT_Server:
                         os.remove(self.dumpcap_file)
                 self.current_run += 1
             # Once all runs are finished, cleans up everything and exits
+            self.finished = True
             self.cleanup()
     
     # Cleanup function, used to inform all clients to shutdown and gracefully clean everything MQTT related,
@@ -421,10 +434,11 @@ class MQTT_Server:
             self.client.publish(finish_client, None, qos=0)
             self.client.unsubscribe(main_topic)
             self.client.unsubscribe(client_done)
-            self.client.disconnect()
+        self.client.disconnect()
         # Manually closes the Mosquitto service to not leave it hanging and blocking the port for future runs
-        self.main_logger.info(f"Closing Mosquitto service")
-        self.mosquitto_process.terminate()
+        if self.broker_running:
+            self.main_logger.info(f"Closing Mosquitto service")
+            self.mosquitto_process.terminate()
 
     # Starts the server class with all the variables necessary
     def __init__(self):
@@ -435,42 +449,43 @@ class MQTT_Server:
         self.logger_setup()
         self.main_logger.info(f"==================================================")
         self.main_logger.info(f"NEW SYSTEM EXECUTION")
-        # Arranges the Mosquitto configuration file with the correct parameters, and launches the service
-        self.mosquitto_launched = False
-        self.launch_mosquitto()
-        # Declares the thread where the system handler will run. This only has to be done once per system execution
-        self.sys_thread = threading.Thread(target = self.sys_handler, args=())
-        self.main_logger.info(f"Creating MQTT Client with ID {client_id}")
-        # Starts the MQTT client with specified ID, passed through the input arguments, and defines all callbacks
+        self.broker_running = False
+        self.finished = False
         self.mqtt_connected = False
-        self.connect_count = 0
         self.current_run = 0
         self.void_run = False
-        self.client = mqtt.Client(client_id=client_id)
-        self.client.on_connect = self.on_connect
-        self.client.on_disconnect = self.on_disconnect
-        self.client.message_callback_add(main_topic.replace("#", f"client-0"), self.on_maintopic_c0)
-        self.client.message_callback_add(main_topic.replace("#", f"client-1"), self.on_maintopic_c1)
-        self.client.message_callback_add(main_topic.replace("#", f"client-2"), self.on_maintopic_c2)
-        self.client.message_callback_add(main_topic.replace("#", f"client-3"), self.on_maintopic_c3)
-        self.client.message_callback_add(main_topic.replace("#", f"client-4"), self.on_maintopic_c4)
-        self.client.message_callback_add(main_topic.replace("#", f"client-5"), self.on_maintopic_c5)
-        self.client.message_callback_add(main_topic.replace("#", f"client-6"), self.on_maintopic_c6)
-        self.client.message_callback_add(main_topic.replace("#", f"client-7"), self.on_maintopic_c7)
-        self.client.message_callback_add(main_topic.replace("#", f"client-8"), self.on_maintopic_c8)
-        self.client.message_callback_add(main_topic.replace("#", f"client-9"), self.on_maintopic_c9)
-        self.client.message_callback_add(client_done, self.on_clientdone)
-        self.client.message_callback_add(void_run, self.on_voidrun)
-        # The MQTT client connects to the broker and the network loop iterates forever until the cleanup function
-        # The keep alive is set to 3 hours
-        while self.mosquitto_launched == False:
-            time.sleep(5)
-        self.client.connect(broker_address, 1883, 60)
-        self.client.loop_forever()
+        # In case the broker shuts down mid execution, it will be automatically restarted and the 
+        while self.finished is False:
+            # Arranges the Mosquitto configuration file with the correct parameters, and launches the service
+            self.launch_mosquitto()
+            # Declares the thread where the system handler will run
+            self.sys_thread = threading.Thread(target = self.sys_handler, args=())
+            # Starts the MQTT client with specified ID, passed through the input arguments, and defines all callbacks
+            self.main_logger.info(f"Creating MQTT Client with ID {client_id}")
+            self.client = mqtt.Client(client_id=client_id)
+            self.client.on_connect = self.on_connect
+            self.client.on_disconnect = self.on_disconnect
+            self.client.message_callback_add(main_topic.replace("#", f"client-0"), self.on_maintopic_c0)
+            self.client.message_callback_add(main_topic.replace("#", f"client-1"), self.on_maintopic_c1)
+            self.client.message_callback_add(main_topic.replace("#", f"client-2"), self.on_maintopic_c2)
+            self.client.message_callback_add(main_topic.replace("#", f"client-3"), self.on_maintopic_c3)
+            self.client.message_callback_add(main_topic.replace("#", f"client-4"), self.on_maintopic_c4)
+            self.client.message_callback_add(main_topic.replace("#", f"client-5"), self.on_maintopic_c5)
+            self.client.message_callback_add(main_topic.replace("#", f"client-6"), self.on_maintopic_c6)
+            self.client.message_callback_add(main_topic.replace("#", f"client-7"), self.on_maintopic_c7)
+            self.client.message_callback_add(main_topic.replace("#", f"client-8"), self.on_maintopic_c8)
+            self.client.message_callback_add(main_topic.replace("#", f"client-9"), self.on_maintopic_c9)
+            self.client.message_callback_add(client_done, self.on_clientdone)
+            self.client.message_callback_add(void_run, self.on_voidrun)
+            # The MQTT client connects to the broker and the network loop iterates forever until the cleanup function
+            # The keep alive is set to 1 minute
+            self.connect_count = 0
+            self.client.connect(broker_address, 1883, 60)
+            self.client.loop_forever()
 
 # Starts one MQTT Server class object
 # Small exception handler in case the user decides to use Ctrl-C to finish the program mid execution
 try:
     mqtt_server = MQTT_Server()
 except KeyboardInterrupt:
-    print("Detected user interruption, shutting down...")
+    print("Detected exception, shutting down...")

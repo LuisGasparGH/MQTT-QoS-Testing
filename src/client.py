@@ -51,7 +51,7 @@ class MQTT_Client:
         # Gathers current GMT/UTC datetime in string format, to append to the logger file name
         # This will allow distinction between different runs, as well as make it easy to locate the parity between client and server
         # logs, as the datetime obtained on both will be identical
-        append_time = datetime.datetime.utcnow().strftime('%d-%m-%Y_%H-%M-%S')
+        append_time = datetime.datetime.now(datetime.UTC).strftime('%d-%m-%Y_%H-%M-%S')
         # Setup of the formatter for the loggers, to display time, levelname and message, and converts logger timezone to GMT as well
         formatter = logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s')
         formatter.converter = time.gmtime
@@ -179,7 +179,7 @@ class MQTT_Client:
                 self.zip_file =  self.basename + "-U" + self.run_uuid + ".zip"
                 # For the capture file, an additional run repetition and timestamp string is added, like in the loggers, to differentiate between runs
                 # Files for runs with the exact same configuration (due to the fact that each configuration is ran multiple times to obtain an average) go into the same zip file
-                self.dumpcap_file = self.basename + "-R" + str(self.run_repetition+1) + "-T" + str(datetime.datetime.utcnow().strftime('%d-%m-%Y_%H-%M-%S')) + dumpcap_ext
+                self.dumpcap_file = self.basename + "-R" + str(self.run_repetition+1) + "-T" + str(datetime.datetime.now(datetime.UTC).strftime('%d-%m-%Y_%H-%M-%S')) + dumpcap_ext
                 # Logs the run message details and starts both previous handler threads
                 self.main_logger.info(f"Message amount: {self.msg_amount} messages")
                 self.main_logger.info(f"Message size: {self.msg_size} bytes")
@@ -204,6 +204,7 @@ class MQTT_Client:
 
     # Callback for when the client receives a message on the topic finish client
     def on_finishclient(self, client, userdata, msg):
+        self.finished = True
         self.main_logger.info(f"==================================================")
         self.main_logger.info(f"End order received from the server using topic {str(msg.topic)}")
         self.cleanup()
@@ -264,10 +265,10 @@ class MQTT_Client:
             self.main_logger.info(f"Publishing ended: {self.publish_end.strftime('%H:%M:%S.%f')[:-3]}")
             self.main_logger.info(f"Total publish time (for {self.msg_amount-1} messages): {round(pub_time.total_seconds(),3)} seconds")
             self.main_logger.info(f"Actual frequency (from the client): {pub_freq} Hz")
-        # In order to allow for any needed retransmission of the messages from the broker to the server, the thread sleeps for a specific period of time,
-        # which depends on QoS and is determined in the configuration file
-        self.main_logger.info(f"Sleeping for {self.rtx_sleep} seconds to allow for retransmission finishing for QoS {self.msg_qos}")
-        time.sleep(self.rtx_sleep)
+            # In order to allow for any needed retransmission of the messages from the broker to the server, the thread sleeps for a specific period of time,
+            # which depends on QoS and is determined in the configuration file
+            self.main_logger.info(f"Sleeping for {self.rtx_sleep} seconds to allow for retransmission finishing for QoS {self.msg_qos}")
+            time.sleep(self.rtx_sleep)
         if dumpcap_enabled is True:
             if self.void_run == False:
                 # Since capture files can be quite big in size, as soon as a run is complete, the capture file is compressed into the previously mentioned zip file
@@ -294,22 +295,25 @@ class MQTT_Client:
         self.logger_setup()
         self.main_logger.info(f"==================================================")
         self.main_logger.info(f"NEW SYSTEM EXECUTION")
-        self.main_logger.info(f"Creating MQTT Client with ID {client_id}")
-        # Starts the MQTT client with specified client ID, passed through the input arguments, and defines all callbacks
+        self.finished = False
         self.mqtt_connected = False
-        self.connect_count = 0
-        self.client = mqtt.Client(client_id=client_id)
-        self.client.on_connect = self.on_connect
-        self.client.on_disconnect = self.on_disconnect
-        self.client.on_publish = self.on_publish
-        self.client.message_callback_add(begin_client, self.on_beginclient)
-        self.client.message_callback_add(finish_client, self.on_finishclient)
-        self.client.message_callback_add(void_run, self.on_voidrun)
-        # The MQTT client connects to the broker and the network loop iterates forever until the cleanup function
-        # The keepalive is set to 3 hours, to try and avoid the ping messages to appear on the capture files
-        time.sleep(15)
-        self.client.connect(broker_address, 1883, 60)
-        self.client.loop_forever()
+        self.void_run = False
+        while self.finished is False:
+            # Starts the MQTT client with specified client ID, passed through the input arguments, and defines all callbacks
+            self.main_logger.info(f"Creating MQTT Client with ID {client_id}")
+            self.client = mqtt.Client(client_id=client_id)
+            self.client.on_connect = self.on_connect
+            self.client.on_disconnect = self.on_disconnect
+            self.client.on_publish = self.on_publish
+            self.client.message_callback_add(begin_client, self.on_beginclient)
+            self.client.message_callback_add(finish_client, self.on_finishclient)
+            self.client.message_callback_add(void_run, self.on_voidrun)
+            # The MQTT client connects to the broker and the network loop iterates forever until the cleanup function
+            # The keep alive is set to 1 minute
+            time.sleep(15)
+            self.connect_count = 0
+            self.client.connect(broker_address, 1883, 60)
+            self.client.loop_forever()
 
 # Starts one MQTT Client class object
 # Small exception handler in case the user decides to use Ctrl-C to finish the program mid execution
