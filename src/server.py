@@ -52,7 +52,7 @@ rtx_times = config['rtx_times']
 # Gathers current GMT/UTC datetime in string format, to append to the logger file name
 # This will allow distinction between different runs, as well as make it easy to locate the parity between client and server
 # logs, as the datetime obtained on both will be identical
-append_time = datetime.datetime.utcnow().strftime('%d-%m-%Y_%H-%M-%S')
+append_time = datetime.datetime.now(datetime.UTC).strftime('%d-%m-%Y_%H-%M-%S')
 
 # Class of the MQTT server code
 class MQTT_Server:
@@ -159,52 +159,52 @@ class MQTT_Server:
     def on_maintopic_c0(self, client, userdata, msg):
         # For every message received, increases the counter slot for the specific client, and logs the received datetime
         self.run_client_received[0] += 1
-        self.run_client_timestamps[0].append(datetime.datetime.utcnow())
+        self.run_client_timestamps[0].append(datetime.datetime.now(datetime.UTC))
         self.timestamp_logger.info(f"Received message #{self.run_client_received[0]} from the {msg.topic} topic")
     
     def on_maintopic_c1(self, client, userdata, msg):
         self.run_client_received[1] += 1
-        self.run_client_timestamps[1].append(datetime.datetime.utcnow())
+        self.run_client_timestamps[1].append(datetime.datetime.now(datetime.UTC))
         self.timestamp_logger.info(f"Received message #{self.run_client_received[1]} from the {msg.topic} topic")
     
     def on_maintopic_c2(self, client, userdata, msg):
         self.run_client_received[2] += 1
-        self.run_client_timestamps[2].append(datetime.datetime.utcnow())
+        self.run_client_timestamps[2].append(datetime.datetime.now(datetime.UTC))
         self.timestamp_logger.info(f"Received message #{self.run_client_received[2]} from the {msg.topic} topic")
     
     def on_maintopic_c3(self, client, userdata, msg):
         self.run_client_received[3] += 1
-        self.run_client_timestamps[3].append(datetime.datetime.utcnow())
+        self.run_client_timestamps[3].append(datetime.datetime.now(datetime.UTC))
         self.timestamp_logger.info(f"Received message #{self.run_client_received[3]} from the {msg.topic} topic")
     
     def on_maintopic_c4(self, client, userdata, msg):
         self.run_client_received[4] += 1
-        self.run_client_timestamps[4].append(datetime.datetime.utcnow())
+        self.run_client_timestamps[4].append(datetime.datetime.now(datetime.UTC))
         self.timestamp_logger.info(f"Received message #{self.run_client_received[4]} from the {msg.topic} topic")
     
     def on_maintopic_c5(self, client, userdata, msg):
         self.run_client_received[5] += 1
-        self.run_client_timestamps[5].append(datetime.datetime.utcnow())
+        self.run_client_timestamps[5].append(datetime.datetime.now(datetime.UTC))
         self.timestamp_logger.info(f"Received message #{self.run_client_received[5]} from the {msg.topic} topic")
     
     def on_maintopic_c6(self, client, userdata, msg):
         self.run_client_received[6] += 1
-        self.run_client_timestamps[6].append(datetime.datetime.utcnow())
+        self.run_client_timestamps[6].append(datetime.datetime.now(datetime.UTC))
         self.timestamp_logger.info(f"Received message #{self.run_client_received[6]} from the {msg.topic} topic")
     
     def on_maintopic_c7(self, client, userdata, msg):
         self.run_client_received[7] += 1
-        self.run_client_timestamps[7].append(datetime.datetime.utcnow())
+        self.run_client_timestamps[7].append(datetime.datetime.now(datetime.UTC))
         self.timestamp_logger.info(f"Received message #{self.run_client_received[7]} from the {msg.topic} topic")
     
     def on_maintopic_c8(self, client, userdata, msg):
         self.run_client_received[8] += 1
-        self.run_client_timestamps[8].append(datetime.datetime.utcnow())
+        self.run_client_timestamps[8].append(datetime.datetime.now(datetime.UTC))
         self.timestamp_logger.info(f"Received message #{self.run_client_received[8]} from the {msg.topic} topic")
     
     def on_maintopic_c9(self, client, userdata, msg):
         self.run_client_received[9] += 1
-        self.run_client_timestamps[9].append(datetime.datetime.utcnow())
+        self.run_client_timestamps[9].append(datetime.datetime.now(datetime.UTC))
         self.timestamp_logger.info(f"Received message #{self.run_client_received[9]} from the {msg.topic} topic")
     
     # Callback for when the server receives a message on the client done topic
@@ -351,7 +351,7 @@ class MQTT_Server:
                         self.zip_file =  self.basename + "-U" + self.run_uuid + ".zip"
                         # For the capture file, an additional run repetition and timestamp string is added, like in the loggers, to differentiate between runs
                         # Files for runs with the exact same configuration (due to the fact that each configuration is ran multiple times to obtain an average) go into the same zip file
-                        self.dumpcap_file = self.basename + "-R" + str(rep+1) + "-T" + str(datetime.datetime.utcnow().strftime('%d-%m-%Y_%H-%M-%S')) + dumpcap_ext
+                        self.dumpcap_file = self.basename + "-R" + str(rep+1) + "-T" + str(datetime.datetime.now(datetime.UTC).strftime('%d-%m-%Y_%H-%M-%S')) + dumpcap_ext
                     # Subscribes to the message topic with the correct QoS to be used in the run, and logs all the information of the run
                     self.client.subscribe(main_topic, qos=self.run_msg_qos)
                     self.main_logger.info(f"Subscribed to {main_topic} topic with QoS level {self.run_msg_qos}")
@@ -393,6 +393,7 @@ class MQTT_Server:
                                 self.main_logger.info(f"Deleting Dumpcap capture file of current run due to broker stopping")
                                 os.remove(self.dumpcap_file)
                             self.cleanup()
+                            sys.exit()
                         time.sleep(10)
                     if self.void_run == False:
                         # Once the run is ended, all results are calculated and logged
@@ -433,7 +434,7 @@ class MQTT_Server:
             self.client.publish(finish_client, None, qos=0)
             self.client.unsubscribe(main_topic)
             self.client.unsubscribe(client_done)
-            self.client.disconnect()
+        self.client.disconnect()
         # Manually closes the Mosquitto service to not leave it hanging and blocking the port for future runs
         if self.broker_running:
             self.main_logger.info(f"Closing Mosquitto service")
@@ -448,8 +449,6 @@ class MQTT_Server:
         self.logger_setup()
         self.main_logger.info(f"==================================================")
         self.main_logger.info(f"NEW SYSTEM EXECUTION")
-        # Declares the thread where the system handler will run. This only has to be done once per system execution
-        self.sys_thread = threading.Thread(target = self.sys_handler, args=())
         self.broker_running = False
         self.finished = False
         self.mqtt_connected = False
@@ -459,6 +458,8 @@ class MQTT_Server:
         while self.finished is False:
             # Arranges the Mosquitto configuration file with the correct parameters, and launches the service
             self.launch_mosquitto()
+            # Declares the thread where the system handler will run
+            self.sys_thread = threading.Thread(target = self.sys_handler, args=())
             # Starts the MQTT client with specified ID, passed through the input arguments, and defines all callbacks
             self.main_logger.info(f"Creating MQTT Client with ID {client_id}")
             self.client = mqtt.Client(client_id=client_id)
