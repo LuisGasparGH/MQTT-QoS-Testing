@@ -51,7 +51,7 @@ class MQTT_Client:
         # Gathers current GMT/UTC datetime in string format, to append to the logger file name
         # This will allow distinction between different runs, as well as make it easy to locate the parity between client and server
         # logs, as the datetime obtained on both will be identical
-        append_time = datetime.datetime.now(datetime.UTC).strftime('%d-%m-%Y_%H-%M-%S')
+        append_time = datetime.datetime.utcnow().strftime('%d-%m-%Y_%H-%M-%S')
         # Setup of the formatter for the loggers, to display time, levelname and message, and converts logger timezone to GMT as well
         formatter = logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s')
         formatter.converter = time.gmtime
@@ -179,7 +179,7 @@ class MQTT_Client:
                 self.zip_file =  self.basename + "-U" + self.run_uuid + ".zip"
                 # For the capture file, an additional run repetition and timestamp string is added, like in the loggers, to differentiate between runs
                 # Files for runs with the exact same configuration (due to the fact that each configuration is ran multiple times to obtain an average) go into the same zip file
-                self.dumpcap_file = self.basename + "-R" + str(self.run_repetition+1) + "-T" + str(datetime.datetime.now(datetime.UTC).strftime('%d-%m-%Y_%H-%M-%S')) + dumpcap_ext
+                self.dumpcap_file = self.basename + "-R" + str(self.run_repetition+1) + "-T" + str(datetime.datetime.utcnow().strftime('%d-%m-%Y_%H-%M-%S')) + dumpcap_ext
                 # Logs the run message details and starts both previous handler threads
                 self.main_logger.info(f"Message amount: {self.msg_amount} messages")
                 self.main_logger.info(f"Message size: {self.msg_size} bytes")
