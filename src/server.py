@@ -385,7 +385,6 @@ class MQTT_Server:
                     # While the run is not finished, the thread waits and periodically checks if the run has ended
                     while self.run_finished == False and self.void_run == False:
                         self.broker_running = self.mosquitto_process.poll() is None
-                        self.main_logger.info(f"Broker running: {self.broker_running}")
                         if self.broker_running is False:
                             self.main_logger.error(f"Broker has stopped running, restarting execution from beggining of latest run")
                             if dumpcap_enabled is True:
@@ -415,6 +414,9 @@ class MQTT_Server:
                         self.main_logger.info(f"Deleting Dumpcap capture file of current run due to being void")
                     if dumpcap_enabled is True:
                         os.remove(self.dumpcap_file)
+                    if self.void_run == True:
+                        self.main_logger.info(f"Waiting 60 seconds before sending next run order for synchronization purposes")
+                        time.sleep(60)
                 self.current_run += 1
             # Once all runs are finished, cleans up everything and exits
             self.finished = True
