@@ -281,6 +281,7 @@ class MQTT_Client:
                 self.zip.write(self.dumpcap_file, os.path.basename(self.dumpcap_file))
                 self.zip.close()
             elif self.void_run == True:
+                self.dumpcap_subprocess.terminate()
                 self.main_logger.info(f"Deleting Dumpcap capture file of current run due to being void")
             os.remove(self.dumpcap_file)
         # At least, the client has to inform the server that it has finished publishing messages for this run
