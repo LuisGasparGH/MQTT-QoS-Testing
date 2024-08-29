@@ -200,6 +200,8 @@ class MQTT_Client:
                 dumpcap_call = ["dumpcap", "-i", dumpcap_interface, "-P", "-f", dumpcap_filter,
                                 "-a", f"duration:{sniff_duration}", "-B", str(dumpcap_buffer), "-w", self.dumpcap_file]
                 self.dumpcap_subprocess = subprocess.Popen(dumpcap_call, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                if self.dumpcap_subprocess.poll() is None:
+                    self.main_logger.info(f"Dumpcap capture successfully started")
             self.run_thread.start()
 
     # Callback for when the client receives a message on the topic finish client
@@ -254,6 +256,10 @@ class MQTT_Client:
                 self.client.publish(main_topic, payload, qos=self.msg_qos)
                 # Pauses the thread until the deadline specified is met
                 pause.until(deadline)
+            else: 
+                # If the run is void, the client stops the loop and breaks out of it
+                self.main_logger.warning(f"Current run is void, aborting publish loop")
+                break
         # Once the iteration is complete, simply waits for MQTT client that all messages have been sent, before proceeding to the next step
         while (self.pub_complete != True) and (self.void_run != True):
             time.sleep(2.5)
@@ -281,6 +287,7 @@ class MQTT_Client:
                 self.zip.write(self.dumpcap_file, os.path.basename(self.dumpcap_file))
                 self.zip.close()
             elif self.void_run == True:
+                self.main_logger.info(f"Terminating Dumpcap capture due to void run")
                 self.dumpcap_subprocess.terminate()
                 self.main_logger.info(f"Deleting Dumpcap capture file of current run due to being void")
             os.remove(self.dumpcap_file)

@@ -382,18 +382,25 @@ class MQTT_Server:
                         dumpcap_call = ["dumpcap", "-i", dumpcap_interface, "-P", "-f", dumpcap_filter,
                                         "-a", f"duration:{sniff_duration}", "-B", str(dumpcap_buffer), "-w", self.dumpcap_file]
                         self.dumpcap_subprocess = subprocess.Popen(dumpcap_call, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        if self.dumpcap_subprocess.poll() is None:
+                            self.main_logger.info(f"Dumpcap capture successfully started")
                     # While the run is not finished, the thread waits and periodically checks if the run has ended
-                    while self.run_finished == False and self.void_run == False:
+                    while self.run_finished == False:
                         self.broker_running = self.mosquitto_process.poll() is None
                         if self.broker_running is False:
                             self.main_logger.error(f"Broker has stopped running, restarting execution from beggining of latest run")
                             if dumpcap_enabled is True:
+                                self.main_logger.info(f"Terminating Dumpcap capture due to broker stopping")
                                 self.dumpcap_subprocess.terminate()
                                 self.main_logger.info(f"Deleting Dumpcap capture file of current run due to broker stopping")
                                 os.remove(self.dumpcap_file)
                             self.cleanup()
+                            self.main_logger.info(f"Exiting system handler thread")
                             sys.exit()
-                        time.sleep(10)
+                        if self.void_run == True:
+                            self.main_logger.info(f"Current run is void, exiting listening loop")
+                            break
+                        time.sleep(20)
                     if self.void_run == False:
                         # Once the run is ended, all results are calculated and logged
                         # In case the run is deemed invalid, the repetition counter is not incremented and the run is repeated once more
