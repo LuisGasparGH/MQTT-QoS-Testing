@@ -342,6 +342,7 @@ class MQTT_Server:
                     self.run_client_received = [0 for _ in range(self.run_client_amount)]
                     self.run_client_timestamps = [[] for _ in range(self.run_client_amount)]
                     self.run_client_done = 0
+                    self.run_time_elapsed = 0
                     self.void_run = False
                     if dumpcap_enabled is True:
                         os.makedirs(dumpcap_folder.replace("*C", f"{self.run_client_amount}C"), exist_ok=True)
@@ -397,10 +398,14 @@ class MQTT_Server:
                             self.cleanup()
                             self.main_logger.info(f"Exiting system handler thread")
                             sys.exit()
+                        if self.run_time_elapsed > (sniff_duration+10):
+                            self.main_logger.error(f"Run not yet finished after sniffing ended, assuming void run message was not received")
+                            self.void_run = True
                         if self.void_run == True:
                             self.main_logger.info(f"Current run is void, exiting listening loop")
                             break
                         time.sleep(20)
+                        self.current_run_time += 20
                     if self.void_run == False:
                         # Once the run is ended, all results are calculated and logged
                         # In case the run is deemed invalid, the repetition counter is not incremented and the run is repeated once more

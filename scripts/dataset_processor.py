@@ -1,4 +1,5 @@
 import os, sys, json, zipfile, pyshark, statistics, regex
+import time
 
 # RUN THIS FILE FROM THE ROOT DIRECTORY AND NOT THE SCRIPTS DIRECTORY
 
@@ -34,20 +35,16 @@ def results_file_builder():
                                 for frequency in variables["frequency"]:
                                     results[device][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency] = {}
                                     results[device][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["done"] = False
-                                    results[device][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["processed"] = False
                                     results[device][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["uuid"] = ""
                                     if device == "server":
+                                        results[device][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["processed"] = False
                                         results[device][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["loss"] = 0.0
                                         results[device][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["timefactor"] = 0.0
                                         results[device][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["freq"] = 0.0
                                         results[device][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["freqfactor"] = 0.0
-                                        results[device][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["ooototal"] = 0
-                                        results[device][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["oooavg"] = 0.0
-                                        results[device][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["rttavg"] = 0.0
-                                        results[device][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["rttmin"] = 0.0
-                                        results[device][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["rttmax"] = 0.0
-                                    elif device == "client":
-                                        results[device][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["freqavg"] = 0.0
+                                        results[device][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["ooomsgs"] = 0
+                                        results[device][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["rtt"] = 0.0
+                                    elif device == "clients":
                                         results[device][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["freqc0"] = 0.0
                                         match client_amount:
                                             case "2 clients":
@@ -136,12 +133,14 @@ def log_file_processor(device):
                         freq_factor.append(float(line.split(':')[-1][1:-1]))
                         if repetition == 10:
                             execution_details_lut[uuid] = f"{client_amount};{cpu_performance};{tcp_algorithm};{queue_size};{qos_level};{payload_size};{frequency}"
-                            results["server"][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["done"] = True
-                            results["server"][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["uuid"] = uuid
-                            results["server"][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["loss"] = round(statistics.mean(packet_loss),3)
-                            results["server"][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["timefactor"] = round(statistics.mean(time_factor),3)
-                            results["server"][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["freq"] = round(statistics.mean(actual_freq),3)
-                            results["server"][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["freqfactor"] = round(statistics.mean(freq_factor),3)
+                            if results["server"][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["done"] == False:
+                                print(f"Added server log data for run {uuid}")
+                                results["server"][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["done"] = True
+                                results["server"][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["uuid"] = uuid
+                                results["server"][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["loss"] = round(statistics.mean(packet_loss),3)
+                                results["server"][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["timefactor"] = round(statistics.mean(time_factor),3)
+                                results["server"][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["freq"] = round(statistics.mean(actual_freq),3)
+                                results["server"][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["freqfactor"] = round(statistics.mean(freq_factor),3)
                             packet_loss = []
                             time_factor = []
                             actual_freq = []
@@ -159,7 +158,6 @@ def log_file_processor(device):
 
         for client in range(10):
             print(f"[LFP] Processing client {client} logs...")
-            client_freqavg_helper = {}
             client_log_list = os.listdir(f"logs/client-{client}")
 
             log_counter = 0
@@ -203,16 +201,10 @@ def log_file_processor(device):
                         elif "Actual frequency (from the client)" in line and invalid == False:
                             freqclient.append(float(line.split(':')[-1][1:-3]))
                             if len(freqclient) == 10:
+                                results["clients"][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["done"] = True
                                 results["clients"][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency]["uuid"] = uuid
                                 results["clients"][client_amount][cpu_performance][tcp_algorithm][queue_size][qos_level][payload_size][frequency][f"freqc{client}"] = round(statistics.mean(freqclient),3)
-                                if uuid not in client_freqavg_helper:
-                                    client_freqavg_helper[uuid] = []
-                                client_freqavg_helper[uuid].append(round(statistics.mean(freqclient),3))
                                 freqclient = []
-
-        for entry in client_freqavg_helper:
-            details = execution_details_lut[entry].split(';')
-            results["clients"][details[0]][details[1]][details[2]][details[3]][details[4]][details[5]][details[6]]["freqavg"] = round(statistics.mean(client_freqavg_helper[entry]),3)
 
     with open("scripts/dataset_results.json", "w") as results_file:
         json.dump(results, results_file, indent=4)
@@ -236,51 +228,80 @@ def zip_organizer():
         
         zip_counter = 0
         for zip_file in zip_list:
-            zip_counter += 1
-            uuid = zip_file.split('U')[-1][:-4]
+            if ".zip" in zip_file:
+                zip_counter += 1
+                uuid = zip_file.split('U')[-1][:-4]
 
-            if uuid in execution_details_lut:
-                qos = execution_details_lut[uuid].split(';')[4]
-                
-                rezip = False
-                print(f"[ZO] [{zip_counter}/{len(zip_list)}] Checking {zip_file} for duplicate executions...")
-                with zipfile.ZipFile(f"dumpcap/server/{client_amount}/{zip_file}", 'r') as open_zip:
-                    file_list = open_zip.namelist()
+                if uuid in execution_details_lut:
+                    qos = execution_details_lut[uuid].split(';')[4]
                     
-                    if len(file_list) > 10:
-                        rezip = True
-                        previous_filename = ""
-                        previous_repetition = ""
-
-                        for filename in file_list:
-                            repetition = filename.split('-')[6]
-                            if repetition == previous_repetition:
-                                delete = previous_filename
-                                break
-                            previous_filename = filename
-                            previous_repetition = repetition
+                    rezip = False
+                    print(f"[ZO] [{zip_counter}/{len(zip_list)}] Checking {zip_file} for duplicate executions...")
+                    with zipfile.ZipFile(f"dumpcap/server/{client_amount}/{zip_file}", 'r') as open_zip:
+                        file_list = open_zip.namelist()
                         
-                        print(f"[ZO] {zip_file} has more than 10 capture files. Removing {delete}...")
-                        open_zip.extractall(f"dumpcap/server/{client_amount}/unzipped")
-                        os.remove(f"dumpcap/server/{client_amount}/unzipped/{delete}")
-                        open_zip.close()
-                        
-                if rezip == True:
-                    os.remove(f"dumpcap/server/{client_amount}/{zip_file}")
-                    file_list = os.listdir(f"dumpcap/server/{client_amount}/unzipped")
+                        if len(file_list) > 10:
+                            rezip = True
+                            previous_filename = ""
+                            previous_repetition = ""
 
-                    with zipfile.ZipFile(f"dumpcap/server/{client_amount}/{zip_file}", 'a', zipfile.ZIP_DEFLATED) as open_zip:
-                        for file in file_list:
-                            open_zip.write(f"dumpcap/server/{client_amount}/unzipped/{file}", file)
-                            os.remove(f"dumpcap/server/{client_amount}/unzipped/{file}")
-                        open_zip.close()
-                    print(f"[ZO] {zip_file} reorganized.")
-                    os.rmdir(f"dumpcap/server/{client_amount}/unzipped")
+                            for filename in file_list:
+                                repetition = filename.split('-')[6]
+                                if repetition == previous_repetition:
+                                    delete = previous_filename
+                                    break
+                                previous_filename = filename
+                                previous_repetition = repetition
+                            
+                            print(f"[ZO] {zip_file} has more than 10 capture files. Removing {delete}...")
+                            open_zip.extractall(f"dumpcap/server/{client_amount}/unzipped")
+                            os.remove(f"dumpcap/server/{client_amount}/unzipped/{delete}")
+                            open_zip.close()
+                            
+                    if rezip == True:
+                        os.remove(f"dumpcap/server/{client_amount}/{zip_file}")
+                        file_list = os.listdir(f"dumpcap/server/{client_amount}/unzipped")
 
-                print(f"[ZO] [{zip_counter}/{len(zip_list)}] Moving {zip_file} to respective folder...")
-                os.rename(f"dumpcap/server/{client_amount}/{zip_file}", f"dumpcap/server/{client_amount}/{qos}/{zip_file}")
-            else:
-                os.rename(f"dumpcap/server/{client_amount}/{zip_file}", f"dumpcap/server/{client_amount}/invalid/{zip_file}")
+                        with zipfile.ZipFile(f"dumpcap/server/{client_amount}/{zip_file}", 'a', zipfile.ZIP_DEFLATED) as open_zip:
+                            for file in file_list:
+                                open_zip.write(f"dumpcap/server/{client_amount}/unzipped/{file}", file)
+                                os.remove(f"dumpcap/server/{client_amount}/unzipped/{file}")
+                            open_zip.close()
+                        print(f"[ZO] {zip_file} reorganized.")
+                        os.rmdir(f"dumpcap/server/{client_amount}/unzipped")
+
+                    print(f"[ZO] [{zip_counter}/{len(zip_list)}] Moving {zip_file} to respective folder...")
+                    try:
+                        os.rename(f"dumpcap/server/{client_amount}/{zip_file}", f"dumpcap/server/{client_amount}/{qos}/{zip_file}")
+                    except FileExistsError:
+                        print(f"[ZO] [{zip_counter}/{len(zip_list)}] Duplicate {zip_file} in destination folder, ignoring...")
+                else:
+                    try:
+                        os.rename(f"dumpcap/server/{client_amount}/{zip_file}", f"dumpcap/server/{client_amount}/invalid/{zip_file}")
+                    except FileExistsError:
+                        print(f"[ZO] [{zip_counter}/{len(zip_list)}] Duplicate {zip_file} in destination folder, deleting...")
+                        os.remove(f"dumpcap/server/{client_amount}/{zip_file}")
+
+def remaining_run_checker():
+    print(f"[RRC] Checking results file for missing runs...")
+    with open("scripts/dataset_results.json", "r") as results_file:
+        results = json.load(results_file)
+        results_file.close()
+    
+    for v1 in variables["client_amount"]:
+        for v2 in variables["cpu_performance"]:
+            for v3 in variables["tcp_algorithm"]:
+                for v4 in variables["queue_size"]:
+                    for v5 in variables["qos_level"]:
+                        for v6 in variables["payload_size"]:
+                            for v7 in variables["frequency"]:
+                                done = results["server"][v1][v2][v3][v4][v5][v6][v7]["done"]
+                                processed = results["server"][v1][v2][v3][v4][v5][v6][v7]["processed"]
+
+                                if done and not processed:
+                                    print(f"[RRC] Run with details {v1};{v2};{v3};{v4};{v5};{v6};{v7} done but not processed yet")
+                                # if not done and not processed:
+                                #     print(f"[RRC] Run with details {v1};{v2};{v3};{v4};{v5};{v6};{v7} not done yet")
 
 def pcap_file_processor(clients, qos):
     print(f"[PFP] Processing {clients} {qos} capture files...")
@@ -294,93 +315,102 @@ def pcap_file_processor(clients, qos):
     zip_list = os.listdir(f"dumpcap/server/{clients}/{qos}")
 
     zip_counter = 0
+    unzipped_folder = False
     for zip_file in zip_list:
-        zip_counter += 1
-        print(f"[PFP] [{zip_counter}/{len(zip_list)}] Processing {zip_file}...")
-    
-        uuid = zip_file.split('U')[-1][:-4]
-        details = execution_details_lut[uuid].split(';')
+        if "server-" in zip_file:
+            zip_counter += 1
+            print(f"[PFP] [{zip_counter}/{len(zip_list)}] Processing {zip_file}...")
+        
+            uuid = zip_file.split('U')[-1][:-4]
+            details = execution_details_lut[uuid].split(';')
 
-        if results["server"][details[0]][details[1]][details[2]][details[3]][details[4]][details[5]][details[6]]["processed"] == False:
-            os.makedirs(f"dumpcap/server/{clients}/{qos}/unzipped", exist_ok=True)
-            with zipfile.ZipFile(f"dumpcap/server/{clients}/{qos}/{zip_file}", 'r') as zip_file:
-                zip_file.extractall(f"dumpcap/server/{clients}/{qos}/unzipped")
-                zip_file.close()
+            if results["server"][details[0]][details[1]][details[2]][details[3]][details[4]][details[5]][details[6]]["processed"] == False:
+                os.makedirs(f"dumpcap/server/{clients}/{qos}/unzipped", exist_ok=True)
+                unzipped_folder = True
 
-            ooo_messages = 0
-            rtt = []
+                with zipfile.ZipFile(f"dumpcap/server/{clients}/{qos}/{zip_file}", 'r') as zip_file:
+                    zip_file.extractall(f"dumpcap/server/{clients}/{qos}/unzipped")
+                    zip_file.close()
 
-            capture_list = os.listdir(f"dumpcap/server/{clients}/{qos}/unzipped")
-            capture_counter = 0
-            for capture_file in capture_list:
-                capture_counter += 1
-                print(f"[PFP] [{capture_counter}/{len(capture_list)}] Processing {capture_file}...")
+                ooo_messages = 0
+                rtt = []
 
-                last_message_number = {}
-                ports = {}
-                messages = {}
+                capture_list = os.listdir(f"dumpcap/server/{clients}/{qos}/unzipped")
+                capture_counter = 0
+                for capture_file in capture_list:
+                    capture_counter += 1
+                    print(f"[PFP] [{capture_counter}/{len(capture_list)}] Processing {capture_file}...")
 
-                capture = pyshark.FileCapture(f"dumpcap/server/{clients}/{qos}/unzipped/{capture_file}")
-                packet_counter = 0
-                for packet in capture:
-                    packet_counter += 1
-                    print(f"[PFP] Processing packet {packet_counter}...", end='\r')
-                    match details[4]:
-                        case "QoS 0":
-                            if 'analysis_ack_rtt' in dir(packet.tcp):
-                                rtt.append(float(packet.tcp.analysis_ack_rtt)*1000)
-                        # THE PING REQUEST AND RESPONSES BREAK THE SEQ FLOW NUMBERS, REDO THIS WITH CLIENT ID, PORT AND MESSAGE ID
-                        case "QoS 1" | "QoS 2":
-                            if 'mqtt' in dir(packet):
-                                match packet.mqtt.msgtype:
-                                    case '3':
-                                        if 'main_topic' in packet.mqtt.topic:
-                                            client_id = packet.mqtt.topic.split('/')[-1]
-                                            if packet.tcp.srcport not in ports:
-                                                ports[packet.tcp.srcport] = client_id
-                                            
-                                            if client_id not in messages:
-                                                messages[client_id] = {}
-                                            
-                                            messages[client_id][packet.mqtt.msgid] = float(packet.sniff_timestamp)                                        
-                                    case '4' | '7':
-                                        # TODO - ADAPT THIS LATER TO DETECT THE INSTANCES WHERE PUB/PUBACK MESSAGES ARE NOT IN CAPTURE FILE DUE TO CONGESTION
-                                        # FOR NOW IT JUST IGNORES THEM 
-                                        if packet.tcp.dstport in ports:
-                                            if packet.mqtt.msgid in messages[ports[packet.tcp.dstport]]:
-                                                rtt.append(float(float(packet.sniff_timestamp) - messages[ports[packet.tcp.dstport]][packet.mqtt.msgid])*1000)
+                    last_message_number = {}
+                    ports = {}
+                    messages = {}
+
+                    capture = pyshark.FileCapture(f"dumpcap/server/{clients}/{qos}/unzipped/{capture_file}")
+                    capture.load_packets()
+                    packet_counter = 0
+                    for packet in capture:
+                        packet_counter += 1
+                        print(f"[PFP] Processing packet {packet_counter}...", end='\r')
+                        match details[4]:
+                            case "QoS 0":
+                                if 'analysis_ack_rtt' in dir(packet.tcp):
+                                    rtt.append(float(packet.tcp.analysis_ack_rtt)*1000)
+                            case "QoS 1" | "QoS 2":
+                                if 'mqtt' in dir(packet):
+                                    match packet.mqtt.msgtype:
+                                        case '3':
+                                            if 'topic' in dir(packet.mqtt):
+                                                if 'main_topic' in packet.mqtt.topic:
+                                                    client_id = packet.mqtt.topic.split('/')[-1]
+                                                    if 'srcport' in dir(packet.tcp):
+                                                        if packet.tcp.srcport not in ports:
+                                                            try:
+                                                                ports[packet.tcp.srcport] = client_id
+                                                            except:
+                                                                print(f"[PFP] Error: {packet}")
+                                                        
+                                                        if client_id not in messages:
+                                                            messages[client_id] = {}
+                                                        
+                                                        messages[client_id][packet.mqtt.msgid] = float(packet.sniff_timestamp)
+                                        case '4' | '7':
+                                            if 'dstport' in dir(packet.tcp):
+                                                if packet.tcp.dstport in ports:
+                                                    if packet.mqtt.msgid in messages[ports[packet.tcp.dstport]]:
+                                                        rtt.append(float(float(packet.sniff_timestamp) - messages[ports[packet.tcp.dstport]][packet.mqtt.msgid])*1000)
+                            
+                        if 'mqtt' in dir(packet) and 'topic' in dir(packet.mqtt):	
+                                if packet.mqtt.msgtype == '3' and 'main_topic' in packet.mqtt.topic:
+                                    client = packet.mqtt.topic.split('/')[-1]
+                                    if client not in last_message_number:
+                                        last_message_number[client] = 0
+
+                                    msg_num = packet.mqtt.msg.hex_value+1
+                                    if msg_num > last_message_number[client]:
+                                        last_message_number[client] = msg_num
+                                    else:
+                                        ooo_messages += 1
                     
-                    if 'mqtt' in dir(packet):
-                            if packet.mqtt.msgtype == '3' and 'main_topic' in packet.mqtt.topic:
-                                client = packet.mqtt.topic.split('/')[-1]
-                                if client not in last_message_number:
-                                    last_message_number[client] = 0
+                    capture.close()
+                    os.remove(f"dumpcap/server/{clients}/{qos}/unzipped/{capture_file}")
 
-                                msg_num = packet.mqtt.msg.hex_value+1
-                                if msg_num > last_message_number[client]:
-                                    last_message_number[client] = msg_num
-                                else:
-                                    ooo_messages += 1
+                with open("scripts/dataset_results.json", "r") as results_file:
+                    results = json.load(results_file)
+                    results_file.close()
                 
-                capture.close()
-                os.remove(f"dumpcap/server/{clients}/{qos}/unzipped/{capture_file}")
+                results["server"][details[0]][details[1]][details[2]][details[3]][details[4]][details[5]][details[6]]["processed"] = True
+                results["server"][details[0]][details[1]][details[2]][details[3]][details[4]][details[5]][details[6]]["ooomsgs"] = ooo_messages
+                results["server"][details[0]][details[1]][details[2]][details[3]][details[4]][details[5]][details[6]]["rtt"] = round(statistics.mean(rtt),3)
 
-            with open("scripts/dataset_results.json", "r") as results_file:
-                results = json.load(results_file)
-                results_file.close()
-            
-            results["server"][details[0]][details[1]][details[2]][details[3]][details[4]][details[5]][details[6]]["processed"] = True
-            results["server"][details[0]][details[1]][details[2]][details[3]][details[4]][details[5]][details[6]]["ooomsgs"] = ooo_messages
-            results["server"][details[0]][details[1]][details[2]][details[3]][details[4]][details[5]][details[6]]["rtt"] = round(statistics.mean(rtt),3)
-
-            with open("scripts/dataset_results.json", "w") as results_file:
-                json.dump(results, results_file, indent=4)
-                results_file.close()
-            print("[PFP] Capture file results added to results file.")
-        else:
-            print(f"[PFP] {zip_file} already processed. Skipping...")
+                with open("scripts/dataset_results.json", "w") as results_file:
+                    json.dump(results, results_file, indent=4)
+                    results_file.close()
+                print("[PFP] Capture file results added to results file.")
+            else:
+                print(f"[PFP] {zip_file} already processed. Skipping...")
     
-    os.rmdir(f"dumpcap/server/{clients}/{qos}/unzipped")
+    if unzipped_folder == True:
+        os.rmdir(f"dumpcap/server/{clients}/{qos}/unzipped")
 
 if len(sys.argv) == 1:
     print(f"[DP] Executing step 1")
@@ -388,6 +418,9 @@ if len(sys.argv) == 1:
     log_file_processor("server")
     log_file_processor("clients")
     zip_organizer()
-else:
+elif len(sys.argv) == 3:
     print(f"[DP] Executing step 2")
     pcap_file_processor(f"{sys.argv[1]}C", f"QoS {sys.argv[2]}")
+elif len(sys.argv) == 2 and sys.argv[1] == "rrc":
+    print(f"[DP] Executing step 3")
+    remaining_run_checker()
